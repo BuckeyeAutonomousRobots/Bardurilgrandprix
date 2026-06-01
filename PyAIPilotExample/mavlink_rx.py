@@ -142,12 +142,12 @@ class MAVLinkRX:
         time_boot_ms = msg.time_boot_ms
 
     def on_local_position_ned(self, msg):
-        pos_x = msg.x
-        pos_y = msg.y
-        pos_z = msg.z
-        vel_x = msg.vx
-        vel_y = msg.vy
-        vel_z = msg.vz
+        self.data["pos_x"] = msg.x
+        self.data["pos_y"] = msg.y
+        self.data["pos_z"] = msg.z
+        self.data["vel_x"] = msg.vx
+        self.data["vel_y"] = msg.vy
+        self.data["vel_z"] = msg.vz
         time_boot_ms = msg.time_boot_ms
 
     def on_odometry(self, msg):

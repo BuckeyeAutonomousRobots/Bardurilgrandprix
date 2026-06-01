@@ -16,7 +16,14 @@ SIM_SERVER_UDP_PORT = 14550
 system_boot_ms = int(time.time() * 1000)
 
 # arbitrary shared data between the various components
-shared_data = {}
+shared_data = {
+    "pos_x": 0.0,
+    "pos_y": 0.0,
+    "pos_z": 0.0,
+    "vel_x": 0.0,
+    "vel_y": 0.0,
+    "vel_z": 0.0
+    }
 
 # setup components
 components = setup_components(shared_data, system_boot_ms, SIM_SERVER_UDP_IP, SIM_SERVER_UDP_PORT)
@@ -30,10 +37,14 @@ controller.arm()
 print("Starting control loop...", flush=True)
 
 is_running = True
-while is_running:
-    controller.update()
-    if keyboard.is_pressed('q'):
-        is_running = False
+try:
+    while is_running:
+        controller.update()
+        if keyboard.is_pressed('q'):
+            is_running = False
+except KeyboardInterrupt:
+    print("\nProgram interrupted by user. Exiting...")
+    is_running = False
 
 # exit
 # Timesync not yet implemented

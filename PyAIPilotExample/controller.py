@@ -10,10 +10,10 @@ MAVLINK_CMD_SIM_RESET = 31000
 # MOTOR CONTROLS
 # --------------------------------------------------------------------------------------
 
-MOTOR_FRONT_LEFT = 0
-MOTOR_FRONT_RIGHT = 0
-MOTOR_BACK_LEFT = 0
-MOTOR_BACK_RIGHT = 0
+MOTOR_FRONT_LEFT = 0.5
+MOTOR_FRONT_RIGHT = 0.5
+MOTOR_BACK_LEFT = 1
+MOTOR_BACK_RIGHT = 1
 
 def update_motor_control(mavlink_conn, system_boot_ms):
     motor_rpms = [MOTOR_FRONT_LEFT, MOTOR_FRONT_RIGHT, MOTOR_BACK_LEFT, MOTOR_BACK_RIGHT, 0, 0, 0, 0]
@@ -28,10 +28,10 @@ def update_motor_control(mavlink_conn, system_boot_ms):
 # --------------------------------------------------------------------------------------
 # ATTITUDE CONTROLS
 # --------------------------------------------------------------------------------------
-PITCH_RATE = 0.0   # rad/s (negative = pitch forward)
+PITCH_RATE = -0.1   # rad/s (negative = pitch forward)
 ROLL_RATE  = 0.0
 YAW_RATE   = 0.0
-THRUST     = 0.0    # 0.0 - 1.0
+THRUST     = 1.0    # 0.0 - 1.0
 
 RATES_ATTITUDE_MASK = (
     mavutil.mavlink.ATTITUDE_TARGET_TYPEMASK_ATTITUDE_IGNORE
@@ -114,7 +114,7 @@ def update_position_flight_control(mavlink_conn, system_boot_ms):
         mavutil.mavlink.MAV_FRAME_LOCAL_NED,
         VELOCITY_POSITION_MASK,
         0.0, 0, 0.0,    # ignored position NED
-        2.0, 0.0, 0.0,  # Vel - 2 m/s forward
+        100.0, 0.0, 0.0,  # Vel - 2 m/s forward
         0.0, 0, 0.0,    # ignored acceleration
         0,              # ignored yaw
         0.0             # ignored yaw rate
@@ -132,12 +132,25 @@ class Controller:
         self.data = data
         self.system_boot_ms = system_boot_ms
 
+    def get_position(self):
+        return {
+            'pos_x': self.data["pos_x"],
+            'pos_y': self.data["pos_y"],
+            'pos_z': self.data["pos_z"],
+            'vel_x': self.data["vel_x"],
+            'vel_y': self.data["vel_y"],
+            'vel_z': self.data["vel_z"]
+        }
+
     def update(self):
+        pose_data = self.get_position()
+        print(pose_data)
+        
         # send automated targets to sim flight controller
-        #update_attitude_flight_control(self.sim_conn, self.system_boot_ms)
+        update_attitude_flight_control(self.sim_conn, self.system_boot_ms)
         # alternatively one of
         # update_position_flight_control(self.sim_conn, self.system_boot_ms)
-        update_motor_control(self.sim_conn, self.system_boot_ms)
+        # update_motor_control(self.sim_conn, self.system_boot_ms)
 
         time.sleep(1.0 / CONTROL_HZ)
 
