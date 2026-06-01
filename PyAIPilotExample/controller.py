@@ -37,7 +37,7 @@ RATES_ATTITUDE_MASK = (
     mavutil.mavlink.ATTITUDE_TARGET_TYPEMASK_ATTITUDE_IGNORE
 )
 
-def update_attitude_flight_control(mavlink_conn, system_boot_ms):
+def update_attitude_flight_control(mavlink_conn, system_boot_ms, payload):
     now_ms = int(time.time() * 1000)
 
     """
@@ -60,10 +60,10 @@ def update_attitude_flight_control(mavlink_conn, system_boot_ms):
         mavlink_conn.target_component,
         RATES_ATTITUDE_MASK,
         [1, 0, 0, 0],  # dummy quaternion (ignored)
-        ROLL_RATE,
-        PITCH_RATE,
-        YAW_RATE,
-        THRUST
+        payload["roll_rate"],
+        payload["pitch_rate"],
+        payload["yaw_rate"],
+        payload["thrust"]
     )
 
 # --------------------------------------------------------------------------------------
@@ -145,9 +145,16 @@ class Controller:
     def update(self):
         pose_data = self.get_position()
         print(pose_data)
+
+        payload = {
+            'pitch_rate': 0.0,   # rad/s (negative = pitch forward)
+            'roll_rate' : 0.0,
+            'yaw_rate'  : 0.0,
+            'thrust'    : 1.0    # 0.0 - 1.0
+        }
         
         # send automated targets to sim flight controller
-        update_attitude_flight_control(self.sim_conn, self.system_boot_ms)
+        update_attitude_flight_control(self.sim_conn, self.system_boot_ms, payload)
         # alternatively one of
         # update_position_flight_control(self.sim_conn, self.system_boot_ms)
         # update_motor_control(self.sim_conn, self.system_boot_ms)
