@@ -1,17 +1,8 @@
-## AI Grand Prix (AI-GP) Development Kit
-Conceived by Anduril founder Palmer Luckey and partnered with the Drone Champions League (DCL), Neros Technologies, and JobsOhio, AI-GP is a premier autonomous drone racing competition.
-This global challenge invites elite engineers and teams of up to 8 people to design, build, and deploy autonomy software capable of piloting high-speed racing drones through professional-grade courses—with absolutely zero human intervention.
-For complete competition details and updates, visit the official website at www.theaigrandprix.com.
+## 📁 Installation Instructions (FROM JONAH, THIS IS BARDURIL SPECIFIC)
 
-## 🏆 Competition Highlights
+The AIGP_X.zip folder is *not* contained in this repository due to GitHub file size limits
+Fetch it from the AI Grand Prix team portal [text](https://teams.theaigrandprix.com/login)
 
-* The Stakes: Compete for a share of a $500,000 prize pool and career opportunities at Anduril.
-* The Hardware: Complete competitive parity. All teams utilize identical racing drones built by Neros Technologies incorporating DCL's AI vector module.
-* The Mission: Program the ultimate AI pilot to conquer dynamic, real-world flight conditions using onboard vision sensing—no GPS or absolute coordinate data will be provided.
-
-------------------------------
-## 📁 Repository Contents
-This package contains the foundational tools required to develop, test, and qualify your autonomous flight software.
 ## 1. AIGP_X.zip (The Simulator)
 This archive contains the official AI-GP flight simulator environment for Windows.
 
