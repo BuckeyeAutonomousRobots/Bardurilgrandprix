@@ -1,3 +1,9 @@
 /AIGP_3364
 PyAIPilotExample/log.txt
+comp/logs/
+comp/AIGP_3364/
 *.pyc
+__pycache__/
+.venv/
+*.jsonl
+comp/logs/sim_stack.active.json

@@ -1,0 +1,14 @@
+# Runtime artifacts — do not commit
+logs/
+*.jsonl
+__pycache__/
+*.pyc
+.venv/
+pilot/.venv/
+logs/sim_stack.active.json
+
+# Simulator binary (local install)
+AIGP_3364/
+
+# Captures
+logs/captures/

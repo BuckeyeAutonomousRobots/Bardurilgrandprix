@@ -51,3 +51,26 @@ The simulator environment has been successfully tested on Windows 11 with a GeFo
 Can be found here:
 
 https://www.theaigrandprix.com/previousupdates/
+
+------------------------------
+## 🐝 BeezyBranch — Vision-Primary Gate Stack (`comp/`)
+
+This branch adds the modular **vision-primary** competition stack under [`comp/`](comp/).
+
+| Item | Location |
+|------|----------|
+| Quick start | [`comp/README.md`](comp/README.md) |
+| Full technical docs | [`comp/docs/vision_primary_navigation.md`](comp/docs/vision_primary_navigation.md) |
+| Branch upload notes | [`comp/docs/BRANCH_UPLOAD.md`](comp/docs/BRANCH_UPLOAD.md) |
+
+### Run (competition mode)
+
+```powershell
+cd comp
+pip install -r requirements.txt
+.\run_sim_stack.ps1 -VisionPrimary -ShowVision -WaitSeconds 5
+```
+
+Place extracted `AIGP_3364/FlightSim.exe` next to `comp/` (see `comp/run_sim_stack.ps1`).
+
+The original starter template remains in [`PyAIPilotExample/`](PyAIPilotExample/).

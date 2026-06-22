@@ -1,0 +1,1 @@
+"""Classical OpenCV gate detection."""

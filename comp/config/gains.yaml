@@ -1,0 +1,122 @@
+min_gate_confidence: 0.15
+
+# --- Stability / hover baseline (sim gate stack) ---
+# hover_thrust: normalized collective that roughly holds altitude at trim attitude
+# thrust_min/max: hard clamp — narrow band keeps sim from climbing/diving during gate work
+# thrust_vz_d: vertical velocity damping added to hover_thrust (D on vz, NED)
+# stabilize_*: used in STABILIZE FSM state via AttitudeController._stabilize_command
+# attitude_p / yaw_attitude_p: inner attitude→body-rate loop gains
+# level_recover_*: triggered when roll/pitch exceed level_recover_tilt_rad
+hover_thrust: 0.50
+thrust_min: 0.12
+thrust_max: 0.72
+takeoff_thrust: 0.68
+hover_pitch_rad: 0.0
+
+roll_kp: 0.30
+yaw_kp: 0.28
+yaw_rate_d: 0.06
+lateral_velocity_d: 0.05
+pitch_speed_kp: 0.12
+align_pitch_limit_rad: 0.14
+vertical_gate_pitch_kp: 0.88
+vertical_gate_pitch_limit_rad: 0.48
+map_vertical_error_pitch_kp: 0.20
+map_gate_alt_slew_rate_mps: 3.0
+map_gate_pass_pitch_trim_rad: 0.05
+map_gate_pass_pitch_dist_m: 4.0
+map_gate_pass_pitch_plane_margin_m: 0.3
+map_gate_pass_alt_drop_m: 0.32
+map_gate_pass_alt_drop_dist_m: 6.0
+map_gate_pass_alt_drop_plane_margin_m: 0.5
+backward_drift_pitch_kp: 0.08
+backward_drift_pitch_limit_rad: 0.12
+map_vertical_align_before_forward_m: 0.6
+map_lateral_align_before_forward_m: 0.75
+vision_vertical_align_rad: 0.10
+map_gate_center_blend_dist_m: 8.0
+forward_flight_pitch_kp: 0.80
+forward_flight_pitch_limit_rad: 0.70
+thrust_vz_d: 0.22
+max_climb_rate_mps: 3.0
+climb_overspeed_thrust_gain: 0.10
+climb_brake_pitch_gain: 0.025
+climb_brake_alt_gain: 0.04
+climb_brake_pitch_limit_rad: 0.30
+sink_boost_vz_threshold: 0.20
+sink_boost_gain: 0.20
+sink_boost_max: 0.30
+
+pitch_trim_rad: 0.02
+search_pitch_trim_rad: 0.04
+search_vx_kp: 0.18
+search_vy_kp: 0.22
+search_roll_limit_rad: 0.16
+search_pitch_limit_rad: 0.12
+search_yaw_step_limit_rad: 0.16
+search_yaw_kp: 0.32
+commit_pitch_trim_rad: 0.05
+map_commit_pitch_trim_rad: 0.05
+map_commit_far_pitch_trim_rad: 0.10
+map_gate_center_blend_dist_m: 8.0
+map_collision_slow_radius_m: 6.0
+map_collision_oob_slow_gain: 0.85
+map_collision_min_forward_scale: 0.15
+map_collision_forward_pitch_scale: 0.35
+map_approach_speed_cap_oob_mps: 1.8
+map_commit_speed_cap_oob_mps: 2.4
+map_commit_oob_forward_scale: 0.55
+map_oob_lateral_roll_limit_rad: 0.08
+map_commit_cross_plane_hold_m: 0.5
+map_commit_mid_pitch_trim_rad: 0.12
+map_commit_speed_cap_mps: 3.5
+map_commit_overspeed_pitch_trim_rad: 0.04
+map_commit_post_plane_pitch_trim_rad: 0.02
+map_commit_push_range_m: 1.2
+map_commit_hold_line_start_m: -1.0
+map_commit_line_pitch_trim_rad: 0.20
+map_commit_near_pitch_trim_rad: 0.24
+map_commit_push_pitch_trim_rad: 0.32
+commit_thrust_boost: 0.06
+map_lateral_roll_kp: 0.08
+map_approach_lateral_roll_limit_rad: 0.14
+map_exit_yaw_kp: 0.55
+map_forward_yaw_gate_rad: 0.12
+map_commit_strength_pitch_gain_rad: 0.02
+
+roll_limit_rad: 0.18
+pitch_limit_rad: 0.80
+yaw_step_limit_rad: 0.30
+map_commit_roll_limit_rad: 0.10
+map_commit_line_roll_limit_rad: 0.05
+
+attitude_p: 1.2
+yaw_attitude_p: 0.8
+
+map_roll_gain_scale: 0.90
+map_yaw_gain_scale: 0.90
+map_pitch_gain_scale: 1.00
+map_commit_vertical_kp: 0.02
+stabilize_vx_kp: 0.10
+stabilize_vy_kp: 0.12
+stabilize_pitch_limit_rad: 0.18
+stabilize_roll_limit_rad: 0.12
+# Altitude PI: thrust = baseline(vz) + kp*alt_err + ki*integral
+stabilize_alt_kp: 0.12
+stabilize_alt_ki: 0.03
+alt_hold_kp: 0.16
+alt_hold_ki: 0.04
+alt_integral_limit: 0.5
+takeoff_pitch_kp: 0.0
+takeoff_climb_rate_mps: 2.0
+
+roll_rate_limit_rps: 0.8
+pitch_rate_limit_rps: 0.8
+yaw_rate_limit_rps: 0.5
+level_recover_tilt_rad: 0.35
+upright_recover_tilt_rad: 0.90
+level_recover_kp: 4.0
+level_recover_kd: 0.4
+
+speed_ramp_accel_mps2: 1.5
+speed_ramp_decel_mps2: 1.0

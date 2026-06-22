@@ -1,0 +1,10 @@
+# Comms
+pymavlink
+
+# Vision / planning
+opencv-python
+numpy
+PyYAML>=6.0
+
+# Optional: GateNet training (python -m src.tools.train_gate_net)
+torch

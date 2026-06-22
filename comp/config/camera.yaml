@@ -1,0 +1,9 @@
+width: 640
+height: 360
+cx: 320.0
+cy: 180.0
+fx: 320.0
+fy: 320.0
+tilt_up_deg: -20.0
+aim_vertical_offset_px: 0.0
+gate_inner_size_m: 1.5
