@@ -166,6 +166,15 @@ class AttitudeController:
         )
         if plan.state == "ALIGN_GATE":
             boost *= float(self.gains.get("vision_lower_gate_align_pitch_boost_scale", 1.20))
+        proximity = self._vision_approach_proximity(est)
+        taper = clamp(
+            1.0
+            - proximity
+            * float(self.gains.get("vision_lower_gate_pitch_boost_close_taper", 0.0)),
+            float(self.gains.get("vision_lower_gate_pitch_boost_close_floor", 0.25)),
+            1.0,
+        )
+        boost *= taper
         return min(
             boost,
             float(self.gains.get("vision_lower_gate_pitch_boost_max_rad", 0.12)),
@@ -613,7 +622,12 @@ class AttitudeController:
             return scale
         if abs(est.gate_bearing_y_rad) > float(self.gains.get("vision_vertical_align_rad", 0.10)):
             if float(est.gate_bearing_y_rad) > 0.0:
-                return 1.0
+                extra_bearing = float(est.gate_bearing_y_rad) - float(
+                    self.gains.get("vision_vertical_align_rad", 0.10)
+                )
+                floor = float(self.gains.get("vision_lower_gate_forward_scale_min", 0.25))
+                gain = float(self.gains.get("vision_lower_gate_forward_scale_per_rad", 2.2))
+                return max(floor, 1.0 - extra_bearing * gain)
             return max(0.05, 1.0 - abs(est.gate_bearing_y_rad) / 0.35)
         if abs(est.gate_bearing_x_rad) > float(self.gains.get("vision_center_bearing_rad", 0.06)):
             return max(0.10, 1.0 - abs(est.gate_bearing_x_rad) / 0.30)
@@ -673,6 +687,49 @@ class AttitudeController:
         )
         return wrap_pi(vehicle.yaw_rad + yaw_delta)
 
+    def _lower_gate_extra_bearing_rad(self, est: EstimatedState) -> float:
+        gate_below_rad = float(self.gains.get("vision_gate_below_bearing_rad", 0.08))
+        return max(0.0, float(est.gate_bearing_y_rad) - gate_below_rad)
+
+    def _vision_lower_gate_forward_pitch_cap_rad(
+        self,
+        est: EstimatedState,
+        plan: RacePlan,
+        *,
+        using_map: bool,
+    ) -> float | None:
+        if using_map or not self._vision_primary_enabled():
+            return None
+        if plan.state not in {"ALIGN_GATE", "APPROACH_GATE"}:
+            return None
+        if est.gate_confidence < float(self.gains["min_gate_confidence"]):
+            return None
+        extra_bearing = self._lower_gate_extra_bearing_rad(est)
+        if extra_bearing <= 0.0:
+            return None
+        base_cap = float(self.gains.get("vision_lower_gate_forward_pitch_cap_rad", 0.09))
+        per_rad = float(self.gains.get("vision_lower_gate_forward_pitch_cap_per_rad", 0.25))
+        floor = float(self.gains.get("vision_lower_gate_forward_pitch_cap_min_rad", 0.02))
+        cap = max(floor, base_cap - extra_bearing * per_rad)
+        proximity = self._vision_approach_proximity(est)
+        cap = max(
+            floor,
+            cap
+            - proximity
+            * float(self.gains.get("vision_lower_gate_forward_pitch_cap_near_delta_rad", 0.0)),
+        )
+        if plan.state == "ALIGN_GATE":
+            cap = min(
+                cap,
+                float(
+                    self.gains.get(
+                        "vision_lower_gate_align_forward_pitch_cap_rad",
+                        base_cap,
+                    )
+                ),
+            )
+        return cap
+
     def _vision_forward_scale(self, est: EstimatedState, plan: RacePlan, using_map: bool) -> float:
         if using_map or not self._vision_primary_enabled():
             return self._approach_forward_scale(est, using_map)
@@ -685,11 +742,56 @@ class AttitudeController:
             scale = base * (0.4 + 0.6 * align) * vert_scale
         else:
             scale = vert_scale
+        extra_bearing = self._lower_gate_extra_bearing_rad(est)
+        if extra_bearing > 0.0:
+            lower_gate_floor = float(
+                self.gains.get(
+                    "vision_lower_gate_align_forward_scale_min",
+                    self.gains.get("vision_lower_gate_forward_scale_min", 0.25),
+                )
+            )
+            lower_gate_gain = float(
+                self.gains.get("vision_lower_gate_align_forward_scale_per_rad", 2.8)
+            )
+            scale = min(scale, max(lower_gate_floor, 1.0 - extra_bearing * lower_gate_gain))
         hs = self._vision_horizontal_speed_mps(est)
         speed_cap = float(self.gains.get("vision_forward_max_speed_mps", 1.8))
         if hs > speed_cap:
             scale *= max(0.10, 1.0 - (hs - speed_cap) / 2.5)
         return scale
+
+    def _vision_lower_gate_speed_cap_mps(
+        self,
+        est: EstimatedState,
+        plan: RacePlan,
+        *,
+        using_map: bool,
+    ) -> float | None:
+        if using_map or not self._vision_primary_enabled():
+            return None
+        if plan.state not in {"SEARCH_GATE", "ALIGN_GATE", "APPROACH_GATE"}:
+            return None
+        extra_bearing = self._lower_gate_extra_bearing_rad(est)
+        if extra_bearing <= 0.0:
+            return None
+        base_cap = float(self.gains.get("vision_lower_gate_speed_cap_mps", 0.55))
+        gain = float(self.gains.get("vision_lower_gate_speed_cap_per_rad", 0.9))
+        floor = float(self.gains.get("vision_lower_gate_speed_cap_min_mps", 0.12))
+        cap = max(floor, base_cap - extra_bearing * gain)
+        if est.gate_range_m is not None:
+            far_m = float(self.gains.get("vision_lower_gate_speed_cap_far_range_m", 20.0))
+            near_m = float(self.gains.get("vision_approach_close_range_m", 4.0))
+            proximity = clamp(
+                1.0 - (float(est.gate_range_m) - near_m) / max(far_m - near_m, 1.0),
+                0.0,
+                1.0,
+            )
+            cap = min(
+                cap,
+                base_cap - proximity * float(self.gains.get("vision_lower_gate_speed_cap_near_delta_mps", 0.20)),
+            )
+            cap = max(floor, cap)
+        return cap
 
     def _vision_approach_pitch_limit_rad(self, plan: RacePlan, using_map: bool) -> float:
         if using_map or not self._vision_primary_enabled():
@@ -716,6 +818,13 @@ class AttitudeController:
         vision_speed = self._vision_speed_target_mps(plan, using_map)
         if vision_speed is not None:
             target_speed = max(target_speed, vision_speed)
+        lower_gate_speed_cap = self._vision_lower_gate_speed_cap_mps(
+            est,
+            plan,
+            using_map=using_map,
+        )
+        if lower_gate_speed_cap is not None:
+            target_speed = min(target_speed, lower_gate_speed_cap)
         if (
             using_map
             and (plan.commit or plan.state in {"COMMIT_GATE", "PASS_GATE"})
@@ -771,7 +880,15 @@ class AttitudeController:
             < float(self.gains.get("map_collision_slow_radius_m", 6.0))
         ):
             forward_pitch *= float(self.gains.get("map_collision_forward_pitch_scale", 0.35))
-        return base_pitch + forward_pitch
+        command_pitch = base_pitch + forward_pitch
+        lower_gate_cap = self._vision_lower_gate_forward_pitch_cap_rad(
+            est,
+            plan,
+            using_map=using_map,
+        )
+        if lower_gate_cap is not None:
+            command_pitch = min(command_pitch, self._hover_pitch_sp + lower_gate_cap)
+        return command_pitch
 
     def _gate_pitch_sp(self, vehicle, vz: float, est, plan, using_map: bool, body_vx: float, theta_y: float) -> float:
         vert_theta_y = self._gate_vertical_theta_y(est, using_map, theta_y)
@@ -836,6 +953,11 @@ class AttitudeController:
                 if plan.state == "ALIGN_GATE":
                     cut += extra_bearing * float(
                         self.gains.get("vision_lower_gate_align_extra_thrust_cut_per_rad", 0.10)
+                    )
+                proximity = self._vision_approach_proximity(est)
+                if proximity > 0.0:
+                    cut += proximity * float(
+                        self.gains.get("vision_lower_gate_descent_close_cut_max", 0.0)
                     )
                 alt_error = float(current_alt - target_alt)
                 if alt_error > 0.08:
@@ -988,10 +1110,26 @@ class AttitudeController:
         target_speed = self._gate_speed_target_mps(est, plan, using_map)
         max_accel = float(self.gains.get("speed_ramp_accel_mps2", 1.5))
         max_decel = float(self.gains.get("speed_ramp_decel_mps2", 1.0))
+        lower_gate_speed_cap = self._vision_lower_gate_speed_cap_mps(
+            est,
+            plan,
+            using_map=using_map,
+        )
+        if lower_gate_speed_cap is not None:
+            max_decel = max(
+                max_decel,
+                float(self.gains.get("vision_lower_gate_speed_decel_mps2", 2.8)),
+            )
         if target_speed > self._speed_cmd_mps:
             self._speed_cmd_mps = min(self._speed_cmd_mps + max_accel * dt, target_speed)
         else:
             self._speed_cmd_mps = max(self._speed_cmd_mps - max_decel * dt, target_speed)
+        if (
+            lower_gate_speed_cap is not None
+            and not using_map
+            and plan.state == "ALIGN_GATE"
+        ):
+            self._speed_cmd_mps = min(self._speed_cmd_mps, lower_gate_speed_cap)
         if (
             using_map
             and est.map_within_gate_bounds is False
@@ -1456,9 +1594,20 @@ class AttitudeController:
                 roll_sp - lat_kp * float(est.map_lateral_error_m),
                 -lat_limit,
                 lat_limit,
-            )
+        )
         pitch_sp = self._gate_pitch_sp(vehicle, float(vz), est, plan, using_map, body_vx, theta_y)
         speed_brake_mps = float(self.gains.get("vision_align_speed_brake_mps", 1.8))
+        lower_gate_extra_bearing = self._lower_gate_extra_bearing_rad(est)
+        if (
+            vision_primary
+            and not using_map
+            and plan.state in {"ALIGN_GATE", "APPROACH_GATE"}
+            and lower_gate_extra_bearing > 0.0
+        ):
+            speed_brake_mps = min(
+                speed_brake_mps,
+                float(self.gains.get("vision_lower_gate_brake_speed_mps", 0.9)),
+            )
         if (
             vision_primary
             and not using_map
@@ -1471,6 +1620,14 @@ class AttitudeController:
                 aggressive=True,
             )
             brake_mix = clamp((hs - speed_brake_mps) / 1.5, 0.25, 0.65)
+            if lower_gate_extra_bearing > 0.0:
+                brake_mix = clamp(
+                    brake_mix
+                    + lower_gate_extra_bearing
+                    * float(self.gains.get("vision_lower_gate_brake_mix_per_rad", 1.2)),
+                    0.35,
+                    float(self.gains.get("vision_lower_gate_brake_mix_max", 0.90)),
+                )
             pitch_sp = pitch_sp + (damp_pitch - self._hover_pitch_sp) * brake_mix
         elif (
             vision_primary
@@ -1483,6 +1640,14 @@ class AttitudeController:
                 aggressive=math.hypot(body_vx, body_vy) > 0.8,
             )
             blend = clamp(math.hypot(body_vx, body_vy) / 2.5, 0.25, 0.85)
+            if lower_gate_extra_bearing > 0.0:
+                blend = clamp(
+                    blend
+                    + lower_gate_extra_bearing
+                    * float(self.gains.get("vision_lower_gate_brake_blend_per_rad", 0.8)),
+                    0.35,
+                    float(self.gains.get("vision_lower_gate_brake_blend_max", 0.90)),
+                )
             pitch_sp = pitch_sp + (damp_pitch - self._hover_pitch_sp) * blend
         forward_scale = self._vision_forward_scale(est, plan, using_map)
         if forward_scale < 0.95 and not (vision_primary and not using_map):

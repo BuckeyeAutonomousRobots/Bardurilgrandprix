@@ -307,11 +307,80 @@ def main() -> int:
     gains["vision_lower_gate_align_pitch_boost_scale"] = float(
         sim_config.get("vision_lower_gate_align_pitch_boost_scale", 1.20)
     )
+    gains["vision_lower_gate_pitch_boost_close_taper"] = float(
+        sim_config.get("vision_lower_gate_pitch_boost_close_taper", 0.0)
+    )
+    gains["vision_lower_gate_pitch_boost_close_floor"] = float(
+        sim_config.get("vision_lower_gate_pitch_boost_close_floor", 0.25)
+    )
     gains["vision_lower_gate_extra_pitch_limit_per_rad"] = float(
         sim_config.get("vision_lower_gate_extra_pitch_limit_per_rad", 0.90)
     )
     gains["vision_lower_gate_extra_pitch_limit_rad"] = float(
         sim_config.get("vision_lower_gate_extra_pitch_limit_rad", 0.10)
+    )
+    gains["vision_lower_gate_forward_scale_min"] = float(
+        sim_config.get("vision_lower_gate_forward_scale_min", 0.25)
+    )
+    gains["vision_lower_gate_forward_scale_per_rad"] = float(
+        sim_config.get("vision_lower_gate_forward_scale_per_rad", 2.2)
+    )
+    gains["vision_lower_gate_align_forward_scale_min"] = float(
+        sim_config.get("vision_lower_gate_align_forward_scale_min", 0.18)
+    )
+    gains["vision_lower_gate_align_forward_scale_per_rad"] = float(
+        sim_config.get("vision_lower_gate_align_forward_scale_per_rad", 2.8)
+    )
+    gains["vision_lower_gate_speed_cap_mps"] = float(
+        sim_config.get("vision_lower_gate_speed_cap_mps", 0.55)
+    )
+    gains["vision_lower_gate_speed_cap_per_rad"] = float(
+        sim_config.get("vision_lower_gate_speed_cap_per_rad", 0.9)
+    )
+    gains["vision_lower_gate_speed_cap_min_mps"] = float(
+        sim_config.get("vision_lower_gate_speed_cap_min_mps", 0.12)
+    )
+    gains["vision_lower_gate_speed_cap_near_delta_mps"] = float(
+        sim_config.get("vision_lower_gate_speed_cap_near_delta_mps", 0.20)
+    )
+    gains["vision_lower_gate_speed_cap_far_range_m"] = float(
+        sim_config.get("vision_lower_gate_speed_cap_far_range_m", 20.0)
+    )
+    gains["vision_lower_gate_speed_decel_mps2"] = float(
+        sim_config.get("vision_lower_gate_speed_decel_mps2", 2.8)
+    )
+    gains["vision_lower_gate_brake_speed_mps"] = float(
+        sim_config.get("vision_lower_gate_brake_speed_mps", 0.9)
+    )
+    gains["vision_lower_gate_brake_mix_per_rad"] = float(
+        sim_config.get("vision_lower_gate_brake_mix_per_rad", 1.2)
+    )
+    gains["vision_lower_gate_brake_mix_max"] = float(
+        sim_config.get("vision_lower_gate_brake_mix_max", 0.90)
+    )
+    gains["vision_lower_gate_brake_blend_per_rad"] = float(
+        sim_config.get("vision_lower_gate_brake_blend_per_rad", 0.8)
+    )
+    gains["vision_lower_gate_brake_blend_max"] = float(
+        sim_config.get("vision_lower_gate_brake_blend_max", 0.90)
+    )
+    gains["vision_lower_gate_forward_pitch_cap_rad"] = float(
+        sim_config.get("vision_lower_gate_forward_pitch_cap_rad", 0.09)
+    )
+    gains["vision_lower_gate_forward_pitch_cap_per_rad"] = float(
+        sim_config.get("vision_lower_gate_forward_pitch_cap_per_rad", 0.25)
+    )
+    gains["vision_lower_gate_forward_pitch_cap_min_rad"] = float(
+        sim_config.get("vision_lower_gate_forward_pitch_cap_min_rad", 0.02)
+    )
+    gains["vision_lower_gate_forward_pitch_cap_near_delta_rad"] = float(
+        sim_config.get("vision_lower_gate_forward_pitch_cap_near_delta_rad", 0.0)
+    )
+    gains["vision_lower_gate_align_forward_pitch_cap_rad"] = float(
+        sim_config.get("vision_lower_gate_align_forward_pitch_cap_rad", 0.07)
+    )
+    gains["vision_lower_gate_descent_close_cut_max"] = float(
+        sim_config.get("vision_lower_gate_descent_close_cut_max", 0.0)
     )
     gains["capture_launch_pitch_trim"] = bool(sim_config.get("capture_launch_pitch_trim", True))
     gains["launch_pitch_trim_limit_rad"] = float(sim_config.get("launch_pitch_trim_limit_rad", 0.55))

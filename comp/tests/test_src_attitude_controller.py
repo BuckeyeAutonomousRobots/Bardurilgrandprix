@@ -364,6 +364,204 @@ def test_oob_near_gate_reduces_forward_scale():
     assert speed < 2.5
 
 
+def test_lower_gate_reduces_forward_scale():
+    gains = {
+        **GAINS,
+        "vision_primary_navigation": True,
+        "vision_lower_gate_forward_scale_min": 0.22,
+        "vision_lower_gate_forward_scale_per_rad": 2.6,
+        "vision_lower_gate_align_forward_scale_min": 0.14,
+        "vision_lower_gate_align_forward_scale_per_rad": 3.2,
+    }
+    controller = AttitudeController(gains)
+    low = EstimatedState(
+        now_s=1.0,
+        vehicle=VehicleState(),
+        gate_track=GateTrack(1, 1.0, (320.0, 220.0), (0, 0, 100, 100), 0.9, 0.08, True),
+        link_ready=True,
+        vision_ready=True,
+        gate_bearing_x_rad=0.02,
+        gate_bearing_y_rad=0.24,
+        gate_confidence=0.9,
+    )
+    mild = EstimatedState(
+        now_s=1.0,
+        vehicle=VehicleState(),
+        gate_track=GateTrack(1, 1.0, (320.0, 220.0), (0, 0, 100, 100), 0.9, 0.08, True),
+        link_ready=True,
+        vision_ready=True,
+        gate_bearing_x_rad=0.02,
+        gate_bearing_y_rad=0.05,
+        gate_confidence=0.9,
+    )
+    align = RacePlan("ALIGN_GATE", 0.8)
+
+    low_scale = controller._vision_forward_scale(low, align, using_map=False)
+    mild_scale = controller._vision_forward_scale(mild, align, using_map=False)
+
+    assert low_scale < mild_scale
+    assert low_scale <= 0.55
+
+
+def test_lower_gate_speed_cap_reduces_target_speed():
+    gains = {
+        **GAINS,
+        "vision_primary_navigation": True,
+        "vision_search_speed_mps": 0.5,
+        "vision_align_speed_mps": 0.8,
+        "vision_lower_gate_speed_cap_mps": 0.45,
+        "vision_lower_gate_speed_cap_per_rad": 1.1,
+        "vision_lower_gate_speed_cap_min_mps": 0.10,
+        "vision_lower_gate_speed_cap_near_delta_mps": 0.18,
+        "vision_lower_gate_speed_cap_far_range_m": 20.0,
+    }
+    controller = AttitudeController(gains)
+    low = EstimatedState(
+        now_s=1.0,
+        vehicle=VehicleState(),
+        gate_track=GateTrack(1, 1.0, (320.0, 220.0), (0, 0, 100, 100), 0.9, 0.08, True),
+        link_ready=True,
+        vision_ready=True,
+        gate_bearing_x_rad=0.02,
+        gate_bearing_y_rad=0.24,
+        gate_confidence=0.9,
+        gate_range_m=8.0,
+    )
+    mild = EstimatedState(
+        now_s=1.0,
+        vehicle=VehicleState(),
+        gate_track=GateTrack(1, 1.0, (320.0, 220.0), (0, 0, 100, 100), 0.9, 0.08, True),
+        link_ready=True,
+        vision_ready=True,
+        gate_bearing_x_rad=0.02,
+        gate_bearing_y_rad=0.05,
+        gate_confidence=0.9,
+        gate_range_m=8.0,
+    )
+    align = RacePlan("ALIGN_GATE", 0.8)
+
+    low_speed = controller._gate_speed_target_mps(low, align, using_map=False)
+    mild_speed = controller._gate_speed_target_mps(mild, align, using_map=False)
+
+    assert low_speed < mild_speed
+    assert low_speed <= 0.45
+
+
+def test_lower_gate_forward_pitch_cap_limits_drive_pitch():
+    gains = {
+        **GAINS,
+        "vision_primary_navigation": True,
+        "forward_flight_pitch_kp": 0.80,
+        "pitch_speed_kp": 0.10,
+        "vision_lower_gate_forward_pitch_cap_rad": 0.09,
+        "vision_lower_gate_forward_pitch_cap_per_rad": 0.25,
+        "vision_lower_gate_forward_pitch_cap_min_rad": 0.02,
+        "vision_lower_gate_forward_pitch_cap_near_delta_rad": 0.04,
+        "vision_lower_gate_align_forward_pitch_cap_rad": 0.05,
+    }
+    controller = AttitudeController(gains)
+    controller._hover_pitch_sp = 0.31
+    controller._speed_cmd_mps = 0.8
+    low = EstimatedState(
+        now_s=1.0,
+        vehicle=VehicleState(),
+        gate_track=GateTrack(1, 1.0, (320.0, 220.0), (0, 0, 100, 100), 0.9, 0.08, True),
+        link_ready=True,
+        vision_ready=True,
+        gate_bearing_x_rad=0.02,
+        gate_bearing_y_rad=0.24,
+        gate_confidence=0.9,
+    )
+    mild = EstimatedState(
+        now_s=1.0,
+        vehicle=VehicleState(),
+        gate_track=GateTrack(1, 1.0, (320.0, 220.0), (0, 0, 100, 100), 0.9, 0.08, True),
+        link_ready=True,
+        vision_ready=True,
+        gate_bearing_x_rad=0.02,
+        gate_bearing_y_rad=0.05,
+        gate_confidence=0.9,
+    )
+    align = RacePlan("ALIGN_GATE", 0.8)
+
+    low_pitch = controller._forward_pitch(low, align, using_map=False, body_vx=0.0)
+    mild_pitch = controller._forward_pitch(mild, align, using_map=False, body_vx=0.0)
+
+    assert low_pitch < mild_pitch
+    assert low_pitch <= controller._hover_pitch_sp + 0.05
+
+
+def test_lower_gate_forward_pitch_cap_tightens_when_close():
+    gains = {
+        **GAINS,
+        "vision_primary_navigation": True,
+        "forward_flight_pitch_kp": 0.80,
+        "pitch_speed_kp": 0.10,
+        "vision_lower_gate_forward_pitch_cap_rad": 0.09,
+        "vision_lower_gate_forward_pitch_cap_per_rad": 0.25,
+        "vision_lower_gate_forward_pitch_cap_min_rad": 0.02,
+        "vision_lower_gate_forward_pitch_cap_near_delta_rad": 0.04,
+        "vision_lower_gate_align_forward_pitch_cap_rad": 0.05,
+        "vision_approach_close_range_m": 4.0,
+        "vision_approach_far_range_m": 12.0,
+    }
+    controller = AttitudeController(gains)
+    controller._hover_pitch_sp = 0.31
+    controller._speed_cmd_mps = 0.8
+    far = EstimatedState(
+        now_s=1.0,
+        vehicle=VehicleState(),
+        gate_track=GateTrack(1, 1.0, (320.0, 220.0), (0, 0, 100, 100), 0.9, 0.08, True),
+        link_ready=True,
+        vision_ready=True,
+        gate_bearing_x_rad=0.02,
+        gate_bearing_y_rad=0.24,
+        gate_confidence=0.9,
+        gate_range_m=12.0,
+    )
+    near = EstimatedState(
+        now_s=1.0,
+        vehicle=VehicleState(),
+        gate_track=GateTrack(1, 1.0, (320.0, 220.0), (0, 0, 100, 100), 0.9, 0.08, True),
+        link_ready=True,
+        vision_ready=True,
+        gate_bearing_x_rad=0.02,
+        gate_bearing_y_rad=0.24,
+        gate_confidence=0.9,
+        gate_range_m=4.5,
+    )
+    align = RacePlan("ALIGN_GATE", 0.8)
+
+    far_pitch = controller._forward_pitch(far, align, using_map=False, body_vx=0.0)
+    near_pitch = controller._forward_pitch(near, align, using_map=False, body_vx=0.0)
+
+    assert near_pitch < far_pitch
+
+
+def test_lower_gate_extra_bearing_helper():
+    controller = AttitudeController({**GAINS, "vision_primary_navigation": True})
+    low = EstimatedState(
+        now_s=1.0,
+        vehicle=VehicleState(),
+        gate_track=None,
+        link_ready=True,
+        vision_ready=True,
+        gate_bearing_y_rad=0.24,
+        gate_confidence=0.9,
+    )
+    mild = EstimatedState(
+        now_s=1.0,
+        vehicle=VehicleState(),
+        gate_track=None,
+        link_ready=True,
+        vision_ready=True,
+        gate_bearing_y_rad=0.05,
+        gate_confidence=0.9,
+    )
+    assert controller._lower_gate_extra_bearing_rad(low) > 0.0
+    assert controller._lower_gate_extra_bearing_rad(mild) == 0.0
+
+
 def test_vision_roll_yaw_split_favors_roll_at_speed():
     gains = {**GAINS, "vision_primary_navigation": True}
     controller = AttitudeController(gains)
@@ -731,7 +929,7 @@ def test_lower_gate_pitch_command_is_more_aggressive():
     controller._altitude_captured = True
     vehicle = VehicleState(
         yaw_rad=0.0,
-        pitch_rad=0.31,
+        pitch_rad=0.20,
         velocity_ned_mps=(0.2, 0.0, 0.0),
         position_ned_m=(0.0, 0.0, -1.0),
     )
@@ -818,6 +1016,59 @@ def test_lower_gate_descent_thrust_cut_scales_with_vertical_error():
     assert low_thrust < mild_thrust
 
 
+def test_lower_gate_close_range_increases_descent_thrust_cut():
+    gains = {
+        **GAINS,
+        "vision_primary_navigation": True,
+        "vision_gate_descent_thrust_cut": 0.10,
+        "vision_gate_descent_extra_thrust_cut_per_rad": 0.22,
+        "vision_lower_gate_align_extra_thrust_cut_per_rad": 0.14,
+        "vision_gate_descent_alt_error_cut_gain": 0.05,
+        "vision_gate_descent_thrust_cut_max_extra": 0.08,
+        "vision_gate_descent_thrust_cut_max": 0.24,
+        "vision_lower_gate_descent_close_cut_max": 0.06,
+        "vision_approach_close_range_m": 4.0,
+        "vision_approach_far_range_m": 12.0,
+    }
+    controller = AttitudeController(gains)
+    controller._hover_altitude_m = 0.55
+    controller._altitude_captured = True
+    vehicle = VehicleState(
+        position_ned_m=(0.0, 0.0, -0.95),
+        velocity_ned_mps=(0.0, 0.0, 0.0),
+    )
+    plan = RacePlan("ALIGN_GATE", 0.8)
+    far = EstimatedState(
+        now_s=1.0,
+        vehicle=vehicle,
+        gate_track=GateTrack(1, 1.0, (320.0, 220.0), (0, 0, 100, 100), 0.9, 0.08, True),
+        link_ready=True,
+        vision_ready=True,
+        gate_bearing_y_rad=0.28,
+        gate_confidence=0.9,
+        gate_range_m=10.0,
+    )
+    near = EstimatedState(
+        now_s=1.0,
+        vehicle=vehicle,
+        gate_track=GateTrack(1, 1.0, (320.0, 220.0), (0, 0, 100, 100), 0.9, 0.08, True),
+        link_ready=True,
+        vision_ready=True,
+        gate_bearing_y_rad=0.28,
+        gate_confidence=0.9,
+        gate_range_m=4.5,
+    )
+
+    far_thrust = controller._vision_altitude_hold_thrust(
+        vehicle, 0.0, 1.0 / 60.0, far, plan, using_map=False
+    )
+    near_thrust = controller._vision_altitude_hold_thrust(
+        vehicle, 0.0, 1.0 / 60.0, near, plan, using_map=False
+    )
+
+    assert near_thrust < far_thrust
+
+
 def test_reset_for_next_gate_clears_vision_gate_state():
     controller = AttitudeController({**GAINS, "vision_primary_navigation": True})
     controller._vision_base_hover_altitude_m = 1.8
@@ -898,3 +1149,46 @@ def test_vision_align_braking_can_pitch_up_past_launch_trim_when_fast():
     cmd = controller.update(est, RacePlan("ALIGN_GATE", 0.8), dt=1.0 / 60.0)
 
     assert cmd.pitch_rad < 0.20
+
+
+def test_lower_gate_align_hard_caps_speed_command():
+    gains = {
+        **GAINS,
+        "vision_primary_navigation": True,
+        "vision_align_speed_mps": 0.8,
+        "vision_lower_gate_speed_cap_mps": 0.45,
+        "vision_lower_gate_speed_cap_per_rad": 1.1,
+        "vision_lower_gate_speed_cap_min_mps": 0.10,
+        "vision_lower_gate_speed_decel_mps2": 3.4,
+        "vision_lower_gate_forward_pitch_cap_rad": 0.09,
+        "vision_lower_gate_forward_pitch_cap_per_rad": 0.25,
+        "vision_lower_gate_forward_pitch_cap_min_rad": 0.02,
+        "vision_lower_gate_align_forward_pitch_cap_rad": 0.05,
+    }
+    controller = AttitudeController(gains)
+    controller._hover_pitch_sp = 0.31
+    controller._launch_pitch_captured = True
+    controller._hover_altitude_m = 1.0
+    controller._altitude_captured = True
+    controller._speed_cmd_mps = 2.2
+    vehicle = VehicleState(
+        yaw_rad=0.0,
+        pitch_rad=0.31,
+        velocity_ned_mps=(2.0, 0.0, 0.0),
+        position_ned_m=(0.0, 0.0, -1.0),
+    )
+    est = EstimatedState(
+        now_s=1.0,
+        vehicle=vehicle,
+        gate_track=GateTrack(1, 1.0, (320.0, 220.0), (0, 0, 100, 100), 0.9, 0.08, True),
+        link_ready=True,
+        vision_ready=True,
+        gate_bearing_x_rad=0.02,
+        gate_bearing_y_rad=0.24,
+        gate_confidence=0.9,
+        gate_range_m=8.0,
+    )
+
+    controller.update(est, RacePlan("ALIGN_GATE", 0.8), dt=1.0 / 60.0)
+
+    assert controller._speed_cmd_mps <= 0.45

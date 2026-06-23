@@ -221,6 +221,52 @@ def test_vision_takeoff_skips_stabilize_when_gate_visible():
     assert plan.state == "ALIGN_GATE"
 
 
+def test_vision_takeoff_lower_gate_climb_goes_to_stabilize():
+    cfg = {
+        **SIM_CONFIG,
+        "vision_primary_navigation": True,
+        "use_map_first_gate": False,
+        "vision_takeoff_altitude_m": 1.25,
+        "vision_takeoff_min_alt_m": 0.85,
+        "vision_takeoff_min_time_s": 0.2,
+        "vision_takeoff_skip_stabilize": True,
+        "vision_lower_gate_acquire_max_climb_mps": 0.35,
+        "takeoff_max_time_s": 3.0,
+        "search_min_area_fraction": 0.008,
+    }
+    fsm = RaceFSM(cfg)
+    gate = GateTrack(
+        frame_id=1,
+        timestamp_s=1.0,
+        center_px=(320.0, 290.0),
+        bbox=(200, 100, 140, 140),
+        confidence=0.9,
+        area_fraction=0.12,
+        visible=True,
+    )
+    vehicle = VehicleState(
+        heartbeat_wall_time_s=1.0,
+        armed=True,
+        position_ned_m=(0.0, 0.0, -0.9),
+        velocity_ned_mps=(0.0, 0.0, -2.2),
+    )
+    est = EstimatedState(
+        now_s=1.0,
+        vehicle=vehicle,
+        gate_track=gate,
+        link_ready=True,
+        vision_ready=True,
+        race_started=True,
+        gate_confidence=0.9,
+        gate_bearing_x_rad=0.02,
+        gate_bearing_y_rad=0.30,
+    )
+    fsm.state = "TAKEOFF"
+    fsm._state_since_s = 0.7
+    plan = fsm.update(est)
+    assert plan.state == "STABILIZE"
+
+
 def test_vision_takeoff_exits_on_timeout_with_launch_pitch():
     cfg = {
         **SIM_CONFIG,
@@ -273,6 +319,51 @@ def test_recover_timeout_returns_to_stabilize_when_unstable():
         race_started=True,
     )
     assert fsm.update(est).state == "STABILIZE"
+
+
+def test_fsm_search_gate_waits_for_lower_gate_climb_to_settle():
+    fsm = RaceFSM(
+        SIM_CONFIG
+        | {
+            "vision_primary_navigation": True,
+            "use_map_first_gate": False,
+            "vision_lower_gate_acquire_max_climb_mps": 0.35,
+            "search_min_area_fraction": 0.008,
+        }
+    )
+    fsm.state = "SEARCH_GATE"
+    fsm._state_since_s = 1.0
+    gate = GateTrack(
+        frame_id=1,
+        timestamp_s=1.0,
+        center_px=(320.0, 290.0),
+        bbox=(200, 100, 140, 140),
+        confidence=0.9,
+        area_fraction=0.12,
+        visible=True,
+    )
+    vehicle = VehicleState(
+        heartbeat_wall_time_s=1.0,
+        armed=True,
+        velocity_ned_mps=(0.2, 0.0, -2.0),
+    )
+    est = EstimatedState(
+        now_s=1.2,
+        vehicle=vehicle,
+        gate_track=gate,
+        link_ready=True,
+        vision_ready=True,
+        race_started=True,
+        gate_confidence=0.9,
+        gate_bearing_x_rad=0.02,
+        gate_bearing_y_rad=0.28,
+    )
+    plan = fsm.update(est)
+    assert plan.state == "SEARCH_GATE"
+    est.vehicle.velocity_ned_mps = (0.2, 0.0, -0.1)
+    est.now_s = 1.3
+    plan = fsm.update(est)
+    assert plan.state == "ALIGN_GATE"
 
 
 def test_fsm_vision_align_tolerates_predicted_gate_dropout():

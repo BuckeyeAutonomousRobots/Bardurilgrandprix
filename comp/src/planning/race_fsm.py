@@ -152,6 +152,14 @@ class RaceFSM:
         search_motion_stable = horizontal_speed <= search_motion_limit
         stabilize_max_vz_mps = float(self.config.get("stabilize_max_vz_mps", 3.0))
         vz_ok = abs(vz) <= stabilize_max_vz_mps
+        vision_gate_below_rad = float(self.config.get("vision_gate_below_bearing_rad", 0.08))
+        lower_gate_visible = vision_primary and est.gate_bearing_y_rad >= vision_gate_below_rad
+        vision_acquire_max_climb_mps = float(self.config.get("vision_acquire_max_climb_mps", 0.80))
+        if lower_gate_visible:
+            vision_acquire_max_climb_mps = float(
+                self.config.get("vision_lower_gate_acquire_max_climb_mps", 0.35)
+            )
+        vision_vertical_acquire_ready = vz >= -vision_acquire_max_climb_mps
         takeoff_attitude_limit = float(
             self.config.get(
                 "vision_takeoff_attitude_roll_pitch_rad",
@@ -448,9 +456,9 @@ class RaceFSM:
                 skip_stabilize = vision_primary and bool(
                     self.config.get("vision_takeoff_skip_stabilize", True)
                 )
-                if skip_stabilize and gate_strong:
+                if skip_stabilize and gate_strong and vision_vertical_acquire_ready:
                     self._transition("ALIGN_GATE", now_s, reason)
-                elif skip_stabilize:
+                elif skip_stabilize and vision_vertical_acquire_ready:
                     self._transition("SEARCH_GATE", now_s, reason)
                 else:
                     self._transition("STABILIZE", now_s, reason)
@@ -488,6 +496,7 @@ class RaceFSM:
                 and gate_track.area_fraction >= float(self.config.get("vision_acquire_area_fraction", 0.015))
                 and horizontal_speed <= vision_acquire_max_speed * 1.5
                 and search_attitude_stable
+                and vision_vertical_acquire_ready
             ):
                 self._transition("ALIGN_GATE", now_s, "vision_gate_strong_acquire")
             elif (
@@ -499,6 +508,7 @@ class RaceFSM:
                 and gate_track.area_fraction >= float(self.config.get("vision_acquire_area_fraction", 0.04))
                 and search_attitude_stable
                 and horizontal_speed <= vision_acquire_max_speed
+                and vision_vertical_acquire_ready
             ):
                 self._transition("ALIGN_GATE", now_s, "vision_gate_acquire")
             elif (
@@ -507,6 +517,7 @@ class RaceFSM:
                 and aligned
                 and attitude_stable
                 and (search_motion_stable if vision_primary else motion_stable)
+                and (vision_vertical_acquire_ready if vision_primary else True)
             ):
                 self._transition("ALIGN_GATE", now_s, "stable_gate_track")
         elif self.state == "ALIGN_GATE":
