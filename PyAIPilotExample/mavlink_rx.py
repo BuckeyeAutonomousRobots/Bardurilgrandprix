@@ -141,6 +141,13 @@ class MAVLinkRX:
         yaw_speed = msg.yawspeed
         time_boot_ms = msg.time_boot_ms
 
+        self.data["roll"] = msg.roll
+        self.data["pitch"] = msg.pitch
+        self.data["yaw"] = msg.yaw
+        self.data["vel_roll"] = msg.rollspeed
+        self.data["vel_pitch"] = msg.pitchspeed
+        self.data["vel_yaw"] = msg.yawspeed
+
     def on_local_position_ned(self, msg):
         self.data["pos_x"] = msg.x
         self.data["pos_y"] = msg.y

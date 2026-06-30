@@ -22,7 +22,19 @@ shared_data = {
     "pos_z": 0.0,
     "vel_x": 0.0,
     "vel_y": 0.0,
-    "vel_z": 0.0
+    "vel_z": 0.0,
+    "roll": 0.0,
+    "pitch": 0.0,
+    "yaw": 0.0,
+    "veL_roll": 0.0,
+    "vel_pitch": 0.0,
+    "vel_yaw": 0.0,
+    "target_rel_x": 0.0,
+    "target_rel_y": 0.0,
+    "target_rel_z": 0.0,
+    # Realistically, everything should be lists like this instead of separately defined floats
+    # One tuple per gate
+    "gates": [[0.0, 0.0, 0.0]],
     }
 
 # setup components
