@@ -3,11 +3,18 @@ import struct
 import threading
 
 import cv2
+from ultralytics import YOLO
 import numpy as np
 
 # Modify these properties if you want to run the server remotely for example
 SIM_SERVER_UDP_IP = "0.0.0.0"
 SIM_SERVER_UDP_PORT = 5600
+
+# These should remain constant throughout the run
+WIDTH = 640
+HEIGHT = 360
+
+model = YOLO("angmar_v1.pt")
 
 class VisionRX:
 
@@ -83,10 +90,38 @@ class VisionRX:
                 del frames[frame_id]
 
     def process_frame(self, frame_id, img):
-        #
-        #
-        # Success!
         # image is your FPV camera frame in JPEG format
-        #
-        #
+
+        results = model(img)
+
+        self.data["gates"] = []
+        unsorted_gates = []
+
+        for result in results:
+            boxes = result.boxes
+            for box in boxes:
+                # Get box coordinates (format: [x1, y1, x2, y2] for xyxy)
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+
+                x_centered = (x1 + x2) / 2 - WIDTH / 2
+                y_centered = (y1 + y2) / 2 - HEIGHT / 2
+                # DEPTH IS NOT SCALED TO ANY UNITS, at least until I can do some math
+                # The primary purpose is for sorting, but in the future could be used for more advanced routing
+                # Axis aligned boxes means that rotated gates appear larger, be careful in vq2
+                depth = np.sqrt(np.square(x2 - x1) + np.square(y2 - y1))
+
+
+
+                unsorted_gates.append([x_centered, y_centered, depth.item()])
+
+
+                # There's only one class in vq1
+                # confidence = box.conf[0].item()
+                # class_id = int(box.cls[0].item())
+                # class_name = model.names[class_id]
+
+        unsorted_array = np.array(unsorted_gates)
+        sort_indices = np.argsort(unsorted_array[:, -2])
+        self.data["gates"] = unsorted_array[sort_indices].tolist()
+
         pass

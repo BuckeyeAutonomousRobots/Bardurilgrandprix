@@ -145,28 +145,17 @@ class Controller:
     def update(self):
         pose_data = self.get_position()
         print(pose_data)
+        print("Gates: ", self.data["gates"])
 
         payload = {
             'pitch_rate': 0.0,   # rad/s (negative = pitch forward)
             'roll_rate' : 0.0,
             'yaw_rate'  : 0.0,
-            'thrust'    : 0.1    # 0.0 - 1.0
+            'thrust'    : 0.5    # 0.0 - 1.0
         }
 
-        if keyboard.is_pressed('s'):
-            payload["pitch_rate"] += 0.1
-        if keyboard.is_pressed('w'):
-            payload["pitch_rate"] -= 0.1
+        # payload["thrust"] += self.data["gates"][0][1] / 100
 
-        if keyboard.is_pressed('d'):
-            payload["roll_rate"] += 0.1
-            payload["yaw_rate"] += 0.1
-        if keyboard.is_pressed('a'):
-            payload["roll_rate"] -= 0.1
-            payload["yaw_rate"] -= 0.1
-
-        if keyboard.is_pressed(' '):
-            payload["thrust"] = 0.5
         
         # send automated targets to sim flight controller
         update_attitude_flight_control(self.sim_conn, self.system_boot_ms, payload)
