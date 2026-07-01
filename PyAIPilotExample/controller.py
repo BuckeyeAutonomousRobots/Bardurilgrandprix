@@ -1,6 +1,7 @@
 import time, keyboard
 
 from pymavlink import mavutil
+import numpy as np
 
 # --------------------------------------------------------------------------------------
 # RESET COMMAND
@@ -131,30 +132,43 @@ class Controller:
         self.sim_conn = sim_conn
         self.data = data
         self.system_boot_ms = system_boot_ms
+        self.integral_error = [0, 0]
 
     def get_position(self):
         return {
-            'pos_x': self.data["pos_x"],
-            'pos_y': self.data["pos_y"],
-            'pos_z': self.data["pos_z"],
-            'vel_x': self.data["vel_x"],
-            'vel_y': self.data["vel_y"],
-            'vel_z': self.data["vel_z"]
+            # 'pos_x': self.data["pos_x"],
+            # 'pos_y': self.data["pos_y"],
+            # 'pos_z': self.data["pos_z"],
+            # 'vel_x': self.data["vel_x"],
+            # 'vel_y': self.data["vel_y"],
+            # 'vel_z': self.data["vel_z"]
+            'acc_x': self.data["acc_x"],
+            'acc_y': self.data["acc_y"],
+            'acc_z': self.data["acc_z"],
         }
 
     def update(self):
         pose_data = self.get_position()
         print(pose_data)
-        print("Gates: ", self.data["gates"])
+        # print("Gates: ", self.data["gates"])
 
         payload = {
             'pitch_rate': 0.0,   # rad/s (negative = pitch forward)
             'roll_rate' : 0.0,
             'yaw_rate'  : 0.0,
-            'thrust'    : 0.5    # 0.0 - 1.0
+            'thrust'    : 0.268    # 0.0 - 1.0      # ~approx 0.268 thrust required to break even
         }
 
-        # payload["thrust"] += self.data["gates"][0][1] / 100
+        center_point = [0, 10]
+
+        # POSITIVE Y IS DOWN!!!!!
+        # Trying to stay within the NED coordinate scheme? If it becomes a problem I can switch it
+        if len(self.data["gates"]) > 0:
+            target_accel = np.clip((self.data["gates"][0][1] - center_point[1]) / 100, -0.05, 0.05)
+            self.integral_error[1] += self.data["gates"][0][1]
+            payload["thrust"] -= np.clip((self.integral_error[1] - center_point[1]) / 50, -0.05, 0.05)
+
+            # payload["roll_rate"] += np.clip((self.data["gates"][0][0] - center_point[0]) / 1000, -0.05, 0.05)
 
         
         # send automated targets to sim flight controller

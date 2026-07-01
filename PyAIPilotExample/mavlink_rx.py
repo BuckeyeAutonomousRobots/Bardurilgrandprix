@@ -172,6 +172,10 @@ class MAVLinkRX:
         gyro_x, gyro_y, gyro_z = msg.xgyro, msg.ygyro, msg.zgyro
         time_boot_us = msg.time_usec
 
+        self.data["acc_x"] = msg.xacc
+        self.data["acc_y"] = msg.yacc
+        self.data["acc_z"] = msg.zacc
+
     def on_encapsulated_data(self, msg):
         if msg:
             raw_payload = bytes(msg.data)
