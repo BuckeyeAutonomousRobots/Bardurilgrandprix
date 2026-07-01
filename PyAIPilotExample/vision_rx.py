@@ -9,7 +9,7 @@ import numpy as np
 SIM_SERVER_UDP_IP = "0.0.0.0"
 SIM_SERVER_UDP_PORT = 5600
 WIDTH = 640
-HEIGHT = 384
+HEIGHT = 360
 
 model = YOLO("angmar_v1.pt")
 
@@ -112,17 +112,19 @@ class VisionRX:
 
         if len(unsorted_gates) > 0:
             unsorted_array = np.array(unsorted_gates)
-            sort_indices = np.argsort(unsorted_array[:, -1])
+            sort_indices = np.argsort(unsorted_array[:, -1])[::-1]
             self.data["gates"] = unsorted_array[sort_indices].tolist()
 
 
-    def update_window(self):
+    def update_window(self, OUTPUT_MODE = True, video_writer = None):
         """Call this function inside your main.py loop to refresh the window."""
         try:
             # Check if a new frame is ready (non-blocking)
             frame = self.frame_queue.get_nowait()
             #cv2.putText(frame, "Lorem Ipsum or smth", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2, cv2.LINE_AA)
             cv2.imshow(self.window_name, frame)
+            if OUTPUT_MODE:
+                video_writer.write(frame)
         except queue.Empty:
             pass
 
