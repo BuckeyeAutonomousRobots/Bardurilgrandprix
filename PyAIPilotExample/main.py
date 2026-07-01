@@ -22,6 +22,7 @@ system_boot_ms = int(time.time() * 1000)
 
 # arbitrary shared data between the various components
 shared_data = {
+    "current_time": 0,
     "timestep": 0.005,
     "pos_x": 0.0,
     "pos_y": 0.0,
@@ -53,6 +54,9 @@ ts_loop = components['ts_loop']
 mavlink_rx = components['mavlink_rx']
 vision_rx = components['vision_rx']
 
+# So that update can be called from mavlink
+mavlink_rx.controller = controller
+
 video_writer = None
 
 if DEBUG_MODE:
@@ -72,7 +76,8 @@ print("Starting control loop...", flush=True)
 is_running = True
 try:
     while is_running:
-        controller.update()
+        # update is called inside of mavlink, once per imu update
+        # controller.update()
         if DEBUG_MODE:
             vision_rx.update_window(OUTPUT_MODE, video_writer)
         if keyboard.is_pressed('q'):

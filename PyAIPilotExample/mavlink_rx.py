@@ -16,6 +16,7 @@ class MAVLinkRX:
         self.is_running = False
         self.do_log = False
         self.log = "log.txt"
+        self.controller = None
 
         with open(self.log, "w"):
             pass
@@ -132,41 +133,6 @@ class MAVLinkRX:
         request_time = msg.ts1
         response_time = msg.tc1
 
-    def on_attitude(self, msg):
-        roll = msg.roll
-        pitch = msg.pitch
-        yaw = msg.yaw
-        roll_speed = msg.rollspeed
-        pitch_speed = msg.pitchspeed
-        yaw_speed = msg.yawspeed
-        time_boot_ms = msg.time_boot_ms
-
-        self.data["roll"] = msg.roll
-        self.data["pitch"] = msg.pitch
-        self.data["yaw"] = msg.yaw
-        self.data["vel_roll"] = msg.rollspeed
-        self.data["vel_pitch"] = msg.pitchspeed
-        self.data["vel_yaw"] = msg.yawspeed
-
-    def on_local_position_ned(self, msg):
-        self.data["pos_x"] = msg.x
-        self.data["pos_y"] = msg.y
-        self.data["pos_z"] = msg.z
-        self.data["vel_x"] = msg.vx
-        self.data["vel_y"] = msg.vy
-        self.data["vel_z"] = msg.vz
-        time_boot_ms = msg.time_boot_ms
-
-    def on_odometry(self, msg):
-        pos_x, pos_y, pos_z = msg.x, msg.y, msg.z
-        qx, qy, qz, qw = msg.q[1], msg.q[2], msg.q[3], msg.q[0]
-        vel_x, vel_y, vel_z = msg.vx, msg.vy, msg.vz
-        roll_speed = msg.rollspeed
-        pitch_speed = msg.pitchspeed
-        yaw_speed = msg.yawspeed
-        time_boot_us = msg.time_usec
-        reset_count = msg.reset_counter
-
     def on_highres_imu(self, msg):
         acceleration_x, acceleration_y, acceleration_z = msg.xacc, msg.yacc, msg.zacc
         gyro_x, gyro_y, gyro_z = msg.xgyro, msg.ygyro, msg.zgyro
@@ -175,6 +141,16 @@ class MAVLinkRX:
         self.data["acc_x"] = msg.xacc
         self.data["acc_y"] = msg.yacc
         self.data["acc_z"] = msg.zacc
+        timestep = (msg.time_usec - self.data["current_time"]) / 1000000 # Convert from microseconds
+        if timestep > 0:
+            self.data["timestep"] = timestep
+            self.data["current_time"] = msg.time_usec
+            self.data["vel_x"] += msg.xacc * timestep
+            self.data["vel_y"] += msg.yacc * timestep
+            self.data["vel_z"] += msg.zacc * timestep
+
+        if self.controller != None:
+            self.controller.update()
 
     def on_encapsulated_data(self, msg):
         if msg:
@@ -246,3 +222,43 @@ class MAVLinkRX:
 
         threat_level = msg.threat_level # 1-2 with 2 being higher impact collision
         impact = msg.horizontal_minimum_delta # this is not a delta - it is the impulse magnitude in kg m/s
+
+
+
+    # Removed in latest sim version
+    # def on_attitude(self, msg):
+    #     roll = msg.roll
+    #     pitch = msg.pitch
+    #     yaw = msg.yaw
+    #     roll_speed = msg.rollspeed
+    #     pitch_speed = msg.pitchspeed
+    #     yaw_speed = msg.yawspeed
+    #     time_boot_ms = msg.time_boot_ms
+
+    #     self.data["roll"] = msg.roll
+    #     self.data["pitch"] = msg.pitch
+    #     self.data["yaw"] = msg.yaw
+    #     self.data["vel_roll"] = msg.rollspeed
+    #     self.data["vel_pitch"] = msg.pitchspeed
+    #     self.data["vel_yaw"] = msg.yawspeed
+
+    # Removed in latest sim version
+    # def on_local_position_ned(self, msg):
+    #     self.data["pos_x"] = msg.x
+    #     self.data["pos_y"] = msg.y
+    #     self.data["pos_z"] = msg.z
+    #     self.data["vel_x"] = msg.vx
+    #     self.data["vel_y"] = msg.vy
+    #     self.data["vel_z"] = msg.vz
+    #     time_boot_ms = msg.time_boot_ms
+
+    # Removed in latest sim version
+    # def on_odometry(self, msg):
+    #     pos_x, pos_y, pos_z = msg.x, msg.y, msg.z
+    #     qx, qy, qz, qw = msg.q[1], msg.q[2], msg.q[3], msg.q[0]
+    #     vel_x, vel_y, vel_z = msg.vx, msg.vy, msg.vz
+    #     roll_speed = msg.rollspeed
+    #     pitch_speed = msg.pitchspeed
+    #     yaw_speed = msg.yawspeed
+    #     time_boot_us = msg.time_usec
+    #     reset_count = msg.reset_counter
