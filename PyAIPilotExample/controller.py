@@ -133,6 +133,7 @@ class Controller:
         self.data = data
         self.system_boot_ms = system_boot_ms
         self.integral_error = [0, 0]
+        self.last_error = [0, 0]
 
     def get_position(self):
         return {
@@ -141,7 +142,7 @@ class Controller:
             # 'pos_z': self.data["pos_z"],
             # 'vel_x': self.data["vel_x"],
             # 'vel_y': self.data["vel_y"],
-            # 'vel_z': self.data["vel_z"]
+            # 'vel_z': self.data["vel_z"],
             'acc_x': self.data["acc_x"],
             'acc_y': self.data["acc_y"],
             'acc_z': self.data["acc_z"],
@@ -149,8 +150,9 @@ class Controller:
 
     def update(self):
         pose_data = self.get_position()
-        print(pose_data)
+        # print(pose_data)
         # print("Gates: ", self.data["gates"])
+        # print("Timestep: ", self.data["timestep"])
 
         payload = {
             'pitch_rate': 0.0,   # rad/s (negative = pitch forward)
@@ -159,17 +161,30 @@ class Controller:
             'thrust'    : 0.268    # 0.0 - 1.0      # ~approx 0.268 thrust required to break even
         }
 
-        center_point = [0, 0]
+        center_point = [0, 10]
 
         # POSITIVE Y IS DOWN!!!!!
         # Trying to stay within the NED coordinate scheme? If it becomes a problem I can switch it
         if len(self.data["gates"]) > 0:
-            target_accel = np.clip((self.data["gates"][0][1] - center_point[1]) / 100, -0.05, 0.05)
-            self.integral_error[1] += self.data["gates"][0][1]
-            payload["thrust"] -= np.clip((self.data["gates"][0][1] - center_point[1]) / 1000, -1, 1)
-            # print(payload["thrust"])
+            y_error = (self.data["gates"][0][1] - center_point[0])
 
-           #  payload["roll_rate"] += np.clip((self.data["gates"][0][0] - center_point[0]) / 1000, -1, 1)
+            # PID Parameters
+            PID_params = [1, 1, 1]
+            # Proportional Component
+            proportional = y_error / 1000
+            # Integral Component
+            self.integral_error[1] += y_error
+            integral = self.integral_error[1] / 10000
+            # Derivative Component
+            derivative = y_error - self.last_error[1]
+            self.last_error[1] = y_error
+
+            payload["thrust"] -= proportional * PID_params[0] + integral * PID_params[1] + derivative * PID_params[2]
+
+
+            print(self.integral_error[1])
+
+            # payload["roll_rate"] += np.clip((self.data["gates"][0][0] - center_point[0]) / 1000, -1, 1)
 
         
         # send automated targets to sim flight controller
