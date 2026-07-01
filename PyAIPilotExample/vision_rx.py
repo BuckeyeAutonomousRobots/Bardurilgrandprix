@@ -1,30 +1,31 @@
+import queue
 import socket
 import struct
 import threading
-
 import cv2
 from ultralytics import YOLO
 import numpy as np
 
-# Modify these properties if you want to run the server remotely for example
 SIM_SERVER_UDP_IP = "0.0.0.0"
 SIM_SERVER_UDP_PORT = 5600
-
-# These should remain constant throughout the run
 WIDTH = 640
-HEIGHT = 360
+HEIGHT = 384
 
 model = YOLO("angmar_v1.pt")
 
 class VisionRX:
 
     def __init__(self, data):
+        self.frame_queue = queue.Queue(maxsize=2)
         self.data = data
-        self.thread = threading.Thread(
-            target=self._vision_loop,
-            daemon=False
-        )
         self.is_running = True
+
+        # Initialize the window name (don't create it here, just store the string)
+        self.window_name = "FPV Feed"
+
+        self.thread = threading.Thread(
+            target=self._vision_loop, daemon=False
+        )
         self.thread.start()
 
     def get_thread_for_join(self):
@@ -34,44 +35,41 @@ class VisionRX:
     def _vision_loop(self):
         header_format = "<IHHIIQ"
         header_sz = struct.calcsize(header_format)
-        frames = {}  # frame_id -> received associated frame data
+        frames = {}
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind((SIM_SERVER_UDP_IP, SIM_SERVER_UDP_PORT))
         print("Listening for camera frames...")
 
         while self.is_running:
-            packet, addr = sock.recvfrom(65536)  # max UDP size
+            try:
+                sock.settimeout(1.0)
+                packet, addr = sock.recvfrom(65536)
+            except socket.timeout:
+                continue
 
             header = packet[:header_sz]
             payload = packet[header_sz:]
 
-            # frame_id - identifier for this vision frame
-            # chunk_id - identifier for this chunk packet of data of this frame
-            # total_chunks - total number of chunk packets that make up this frame
-            # jpeg_size - full size of jpeg data
-            # payload_size - size of this packet
-            # sim_time_ns - frame's epoch timestamp in ns on the server
-            frame_id, chunk_id, total_chunks, jpeg_size, payload_size, sim_time_ns = struct.unpack(header_format, header)
+            frame_id, chunk_id, total_chunks, jpeg_size, payload_size, sim_time_ns = struct.unpack(
+                header_format, header
+            )
 
             if frame_id not in frames:
                 frames[frame_id] = {
                     "chunks": {},
                     "total": total_chunks,
                     "size": jpeg_size,
-                    "time": sim_time_ns
+                    "time": sim_time_ns,
                 }
 
             frames[frame_id]["chunks"][chunk_id] = payload
 
-            # Check if frame is complete
             if len(frames[frame_id]["chunks"]) == total_chunks:
                 jpeg_bytes = bytearray()
-
                 frame_complete = True
                 for i in range(total_chunks):
                     if i not in frames[frame_id]["chunks"]:
-                        print('Missing packet %s in frame %s' % (i, frame_id,))
                         frame_complete = False
                         continue
                     jpeg_bytes.extend(frames[frame_id]["chunks"][i])
@@ -84,44 +82,49 @@ class VisionRX:
                 image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
                 if image is not None:
                     self.process_frame(frame_id, image)
-                else:
-                    print(f"Failed to decode frame: {frame_id}")
 
                 del frames[frame_id]
 
     def process_frame(self, frame_id, img):
-        # image is your FPV camera frame in JPEG format
+        results = model(img, verbose=False)
 
-        results = model(img)
+        # Plot onto the frame and queue it for the main thread
+        annotated_frame = results[0].plot()
+        try:
+            self.frame_queue.put_nowait(annotated_frame)
+        except queue.Full:
+            try:
+                self.frame_queue.get_nowait()
+                self.frame_queue.put_nowait(annotated_frame)
+            except queue.Empty:
+                pass
 
         self.data["gates"] = []
         unsorted_gates = []
 
         for result in results:
-            boxes = result.boxes
-            for box in boxes:
-                # Get box coordinates (format: [x1, y1, x2, y2] for xyxy)
+            for box in result.boxes:
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
-
                 x_centered = (x1 + x2) / 2 - WIDTH / 2
                 y_centered = (y1 + y2) / 2 - HEIGHT / 2
-                # DEPTH IS NOT SCALED TO ANY UNITS, at least until I can do some math
-                # The primary purpose is for sorting, but in the future could be used for more advanced routing
-                # Axis aligned boxes means that rotated gates appear larger, be careful in vq2
                 depth = np.sqrt(np.square(x2 - x1) + np.square(y2 - y1))
-
-
-
                 unsorted_gates.append([x_centered, y_centered, depth.item()])
 
+        if len(unsorted_gates) > 0:
+            unsorted_array = np.array(unsorted_gates)
+            sort_indices = np.argsort(unsorted_array[:, -1])
+            self.data["gates"] = unsorted_array[sort_indices].tolist()
 
-                # There's only one class in vq1
-                # confidence = box.conf[0].item()
-                # class_id = int(box.cls[0].item())
-                # class_name = model.names[class_id]
 
-        unsorted_array = np.array(unsorted_gates)
-        sort_indices = np.argsort(unsorted_array[:, -2])
-        self.data["gates"] = unsorted_array[sort_indices].tolist()
+    def update_window(self):
+        """Call this function inside your main.py loop to refresh the window."""
+        try:
+            # Check if a new frame is ready (non-blocking)
+            frame = self.frame_queue.get_nowait()
+            #cv2.putText(frame, "Lorem Ipsum or smth", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2, cv2.LINE_AA)
+            cv2.imshow(self.window_name, frame)
+        except queue.Empty:
+            pass
 
-        pass
+        # Always trigger waitKey to keep the window responsive
+        cv2.waitKey(1)
