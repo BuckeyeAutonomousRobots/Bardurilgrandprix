@@ -159,16 +159,17 @@ class Controller:
             'thrust'    : 0.268    # 0.0 - 1.0      # ~approx 0.268 thrust required to break even
         }
 
-        center_point = [0, 10]
+        center_point = [0, 0]
 
         # POSITIVE Y IS DOWN!!!!!
         # Trying to stay within the NED coordinate scheme? If it becomes a problem I can switch it
         if len(self.data["gates"]) > 0:
             target_accel = np.clip((self.data["gates"][0][1] - center_point[1]) / 100, -0.05, 0.05)
             self.integral_error[1] += self.data["gates"][0][1]
-            payload["thrust"] -= np.clip((self.integral_error[1] - center_point[1]) / 50, -0.05, 0.05)
+            payload["thrust"] -= np.clip((self.data["gates"][0][1] - center_point[1]) / 1000, -1, 1)
+            # print(payload["thrust"])
 
-            # payload["roll_rate"] += np.clip((self.data["gates"][0][0] - center_point[0]) / 1000, -0.05, 0.05)
+           #  payload["roll_rate"] += np.clip((self.data["gates"][0][0] - center_point[0]) / 1000, -1, 1)
 
         
         # send automated targets to sim flight controller

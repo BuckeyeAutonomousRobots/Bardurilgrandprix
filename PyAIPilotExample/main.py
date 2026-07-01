@@ -14,6 +14,8 @@ SIM_SERVER_UDP_IP = "127.0.0.1"
 SIM_SERVER_UDP_PORT = 14550
 
 DEBUG_MODE = True
+# Like a more serious debug, also records and stitches the frames together
+OUTPUT_MODE = True
 
 # time since sim started ms
 system_boot_ms = int(time.time() * 1000)
@@ -51,8 +53,17 @@ ts_loop = components['ts_loop']
 mavlink_rx = components['mavlink_rx']
 vision_rx = components['vision_rx']
 
+video_writer = None
+
 if DEBUG_MODE:
     cv2.namedWindow(vision_rx.window_name, cv2.WINDOW_AUTOSIZE)
+    if OUTPUT_MODE:
+        filename = "fpv_output.mp4"
+        fourcc = cv2.VideoWriter_fourcc(*"avc1")
+        fps = 30
+        video_writer = cv2.VideoWriter(
+            filename, fourcc, fps, (640, 360)
+        )
 
 print("Arming drone...", flush=True)
 controller.arm()
@@ -62,7 +73,8 @@ is_running = True
 try:
     while is_running:
         controller.update()
-        vision_rx.update_window()
+        if DEBUG_MODE:
+            vision_rx.update_window(OUTPUT_MODE, video_writer)
         if keyboard.is_pressed('q'):
             is_running = False
 except KeyboardInterrupt:
@@ -78,5 +90,9 @@ vision_rx.get_thread_for_join().join(timeout=1.0)
 if DEBUG_MODE:
     vision_rx.get_thread_for_join().join()
     cv2.destroyAllWindows()
+
+    if video_writer.isOpened():
+        video_writer.release()
+        print("Video saved successfully.")
 
 print("Client exited!", flush=True)
