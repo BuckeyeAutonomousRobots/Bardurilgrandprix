@@ -122,6 +122,12 @@ class VisionRX:
             # Check if a new frame is ready (non-blocking)
             frame = self.frame_queue.get_nowait()
             #cv2.putText(frame, "Lorem Ipsum or smth", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2, cv2.LINE_AA)
+            if len(self.data["gates"]) > 0:
+                cv2.line(frame, 
+                         (int(WIDTH/2), int(HEIGHT/2)), 
+                         (int(WIDTH/2 + self.data["gates"][0][0]), int(HEIGHT/2 + self.data["gates"][0][1])), 
+                         (0, 0, 255), 
+                          3)
             cv2.imshow(self.window_name, frame)
             if OUTPUT_MODE:
                 video_writer.write(frame)

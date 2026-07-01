@@ -8,6 +8,8 @@ import keyboard
 
 from setup import setup_components
 import cv2
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
 # Modify these properties if you want to run the server remotely for example
 SIM_SERVER_UDP_IP = "127.0.0.1"
@@ -15,7 +17,7 @@ SIM_SERVER_UDP_PORT = 14550
 
 DEBUG_MODE = True
 # Like a more serious debug, also records and stitches the frames together
-OUTPUT_MODE = True
+OUTPUT_MODE = False
 
 # time since sim started ms
 system_boot_ms = int(time.time() * 1000)
@@ -68,6 +70,47 @@ if DEBUG_MODE:
         video_writer = cv2.VideoWriter(
             filename, fourcc, fps, (640, 360)
         )
+    # Create the figure and axis
+    fig, ax = plt.subplots(figsize=(6, 6), dpi=100)
+
+    fig_manager = plt.get_current_fig_manager()
+    # Ok this line might be evil but it works nicely for 1080p and it's just debug anyways
+    fig_manager.window.wm_geometry("+1275+550")
+
+    # 2. Create blank line objects that we will update dynamically
+    p_line, = ax.plot([], [], label="Proportional", color="forestgreen", lw=2)
+    i_line, = ax.plot([], [], label="Integral", color="royalblue", lw=2)
+    d_line, = ax.plot([], [], label="Derivative", color="crimson", lw=2)
+    timestamp_data = []
+    p_data = []
+    i_data = []
+    d_data = []
+    ax.set_ylim(-0.3, 0.7)
+
+    def update_graph(frame):
+        timestamp_data.append(frame * 0.1)
+        p_data.append(controller.proportional)
+        i_data.append(controller.integral)
+        d_data.append(controller.derivative)
+        p_line.set_data(timestamp_data, p_data)
+        i_line.set_data(timestamp_data, i_data)
+        d_line.set_data(timestamp_data, d_data)
+
+        if(frame * 0.1 > ax.get_xlim()[1]):
+            ax.set_xlim(frame * 0.1 - 3, frame * 0.1 + 5)
+            ax.figure.canvas.draw()
+
+        return p_line, i_line, d_line
+
+    ani = animation.FuncAnimation(
+        fig, 
+        update_graph, 
+        blit=True, 
+        interval=100, 
+        cache_frame_data=False
+    )
+
+    plt.show(block=False)
 
 print("Arming drone...", flush=True)
 controller.arm()
@@ -80,6 +123,8 @@ try:
         # controller.update()
         if DEBUG_MODE:
             vision_rx.update_window(OUTPUT_MODE, video_writer)
+            plt.pause(0.1)
+            
         if keyboard.is_pressed('q'):
             is_running = False
 except KeyboardInterrupt:
@@ -96,7 +141,7 @@ if DEBUG_MODE:
     vision_rx.get_thread_for_join().join()
     cv2.destroyAllWindows()
 
-    if video_writer.isOpened():
+    if OUTPUT_MODE and video_writer.isOpened():
         video_writer.release()
         print("Video saved successfully.")
 
