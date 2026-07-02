@@ -166,17 +166,17 @@ class Controller:
         # POSITIVE Y IS DOWN!!!!!
         # Trying to stay within the NED coordinate scheme? If it becomes a problem I can switch it
         if len(self.data["gates"]) > 0:
-            y_error = (self.data["gates"][0][1] - center_point[0])
+            y_error = (self.data["gates"][0][1] - center_point[1])
 
             # PID Parameters
-            PID_params = [0.5, 0.3, 20]
+            PID_params = [0.5, 0.3, 1]
             # Proportional Component
             self.proportional = -y_error / 1000 * PID_params[0]
             # Integral Component
             self.integral_error[1] -= y_error * self.data["timestep"]
             self.integral = self.integral_error[1] / 1000 * PID_params[1]
             # Derivative Component
-            self.derivative = -(y_error - self.last_error[1]) / 1000 * PID_params[2]
+            self.derivative = -(y_error - self.last_error[1]) / self.data["timestep"] / 1000 * PID_params[2]
             self.last_error[1] = y_error
 
             payload["thrust"] += self.proportional + self.integral + self.derivative
