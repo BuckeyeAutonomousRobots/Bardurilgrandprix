@@ -10,7 +10,7 @@ This archive contains the official AI-GP flight simulator environment for Window
 * Execution: Launch the simulator by running FlightSim.exe from the unzipped root folder.
 * Authentication: Access the virtual qualifier within the simulator by logging in with your official simulator account credentials.
 
-## 2. (The Part We Modify
+## 2. The Part We Modify
 * Environment: Tested and verified on Python 3.14.2.
 * 
 * Setup:
