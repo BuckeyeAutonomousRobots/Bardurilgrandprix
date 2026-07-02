@@ -1,7 +1,7 @@
 ## 📁 Installation Instructions (FROM JONAH, THIS IS BARDURIL SPECIFIC)
 
 The AIGP_X.zip folder is *not* contained in this repository due to GitHub file size limits
-Fetch it from the AI Grand Prix team portal [text](https://teams.theaigrandprix.com/login)
+Fetch it from the [AI Grand Prix team portal](https://teams.theaigrandprix.com/login)
 
 ## 1. AIGP_X.zip (The Simulator)
 This archive contains the official AI-GP flight simulator environment for Windows.
@@ -10,10 +10,9 @@ This archive contains the official AI-GP flight simulator environment for Window
 * Execution: Launch the simulator by running FlightSim.exe from the unzipped root folder.
 * Authentication: Access the virtual qualifier within the simulator by logging in with your official simulator account credentials.
 
-## 2. PyAIPilotExample.zip (The Code Template)
-This archive provides a starter template to help you interface with the simulator and write your autonomous flight algorithms.
-
+## 2. (The Part We Modify
 * Environment: Tested and verified on Python 3.14.2.
+* 
 * Setup:
 1. Unzip the archive.
    2. Install the required dependencies:
