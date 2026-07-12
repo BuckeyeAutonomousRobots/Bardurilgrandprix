@@ -169,7 +169,7 @@ class Controller:
             y_error = (self.data["gates"][0][1] - center_point[1])
 
             # PID Parameters
-            PID_params = [0.5, 0.3, 1]
+            PID_params = [0.8, 0, 0]
             # Proportional Component
             self.proportional = -y_error / 1000 * PID_params[0]
             # Integral Component
@@ -179,7 +179,7 @@ class Controller:
             self.derivative = -(y_error - self.last_error[1]) / self.data["timestep"] / 1000 * PID_params[2]
             self.last_error[1] = y_error
 
-            payload["thrust"] += self.proportional + self.integral + self.derivative
+            payload["thrust"] += np.clip(self.proportional + self.integral + self.derivative, -0.268, 1-0.268)
 
 
             # print(self.integral_error[1])
