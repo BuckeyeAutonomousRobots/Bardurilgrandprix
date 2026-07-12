@@ -11,13 +11,10 @@ MAVLINK_CMD_SIM_RESET = 31000
 # MOTOR CONTROLS
 # --------------------------------------------------------------------------------------
 
-MOTOR_FRONT_LEFT = 0.5
-MOTOR_FRONT_RIGHT = 0.5
-MOTOR_BACK_LEFT = 1
-MOTOR_BACK_RIGHT = 1
+# Motor speeds range from 0 - 1
 
-def update_motor_control(mavlink_conn, system_boot_ms):
-    motor_rpms = [MOTOR_FRONT_LEFT, MOTOR_FRONT_RIGHT, MOTOR_BACK_LEFT, MOTOR_BACK_RIGHT, 0, 0, 0, 0]
+def update_motor_control(mavlink_conn, front_left, front_right, back_left, back_right, system_boot_ms):
+    motor_rpms = [front_left, front_right, back_left, back_right, 0, 0, 0, 0]
     mavlink_conn.mav.set_actuator_control_target_send(
         int(time.time() * 1e6),
         mavlink_conn.target_system,
@@ -154,44 +151,22 @@ class Controller:
         # print("Gates: ", self.data["gates"])
         # print("Timestep: ", self.data["timestep"])
 
-        payload = {
-            'pitch_rate': 0.0,   # rad/s (negative = pitch forward)
-            'roll_rate' : 0.0,
-            'yaw_rate'  : 0.0,
-            'thrust'    : 0.268    # 0.0 - 1.0      # ~approx 0.268 thrust required to break even
-        }
+        # payload = {
+        #     'pitch_rate': 0.0,   # rad/s (negative = pitch forward)
+        #     'roll_rate' : 0.0,
+        #     'yaw_rate'  : 0.0,
+        #     'thrust'    : 0.268    # 0.0 - 1.0      # ~approx 0.268 thrust required to break even
+        # }
 
-        center_point = [0, 10]
+        # center_point = [0, 10]
 
         # POSITIVE Y IS DOWN!!!!!
         # Trying to stay within the NED coordinate scheme? If it becomes a problem I can switch it
         if len(self.data["gates"]) > 0:
-            y_error = (self.data["gates"][0][1] - center_point[1])
+            pass
 
-            # PID Parameters
-            PID_params = [0.5, 0.3, 1]
-            # Proportional Component
-            self.proportional = -y_error / 1000 * PID_params[0]
-            # Integral Component
-            self.integral_error[1] -= y_error * self.data["timestep"]
-            self.integral = self.integral_error[1] / 1000 * PID_params[1]
-            # Derivative Component
-            self.derivative = -(y_error - self.last_error[1]) / self.data["timestep"] / 1000 * PID_params[2]
-            self.last_error[1] = y_error
-
-            payload["thrust"] += self.proportional + self.integral + self.derivative
-
-
-            # print(self.integral_error[1])
-
-            # payload["roll_rate"] += np.clip((self.data["gates"][0][0] - center_point[0]) / 1000, -1, 1)
-
-        
-        # send automated targets to sim flight controller
-        update_attitude_flight_control(self.sim_conn, self.system_boot_ms, payload)
-        # alternatively one of
-        # update_position_flight_control(self.sim_conn, self.system_boot_ms)
-        # update_motor_control(self.sim_conn, self.system_boot_ms)
+        # front_left, front_right, back_left, back_right
+        update_motor_control(self.sim_conn, 1, 1, 0, 0, self.system_boot_ms)
 
         time.sleep(1.0 / CONTROL_HZ)
 

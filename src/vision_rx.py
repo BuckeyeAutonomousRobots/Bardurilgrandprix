@@ -86,7 +86,7 @@ class VisionRX:
                 del frames[frame_id]
 
     def process_frame(self, frame_id, img):
-        results = model(img, verbose=False)
+        results = model.track(img, verbose=False, tracker="bytetrack.yaml")
 
         # Plot onto the frame and queue it for the main thread
         annotated_frame = results[0].plot()
