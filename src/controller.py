@@ -1,193 +1,163 @@
-import time, keyboard
-
-from pymavlink import mavutil
+import time
 import numpy as np
+import gymnasium as gym
+from gymnasium import spaces
+from pymavlink import mavutil
 
-# --------------------------------------------------------------------------------------
-# RESET COMMAND
 MAVLINK_CMD_SIM_RESET = 31000
 
-# --------------------------------------------------------------------------------------
-# MOTOR CONTROLS
-# --------------------------------------------------------------------------------------
-
-# Motor speeds range from 0 - 1
-
-def update_motor_control(mavlink_conn, front_left, front_right, back_left, back_right, system_boot_ms):
-    motor_rpms = [front_left, front_right, back_left, back_right, 0, 0, 0, 0]
-    mavlink_conn.mav.set_actuator_control_target_send(
-        int(time.time() * 1e6),
-        mavlink_conn.target_system,
-        mavlink_conn.target_component,
-        0,
-        motor_rpms
-    )
-
-# --------------------------------------------------------------------------------------
-# ATTITUDE CONTROLS
-# --------------------------------------------------------------------------------------
-PITCH_RATE = -0.1   # rad/s (negative = pitch forward)
-ROLL_RATE  = 0.0
-YAW_RATE   = 0.0
-THRUST     = 1.0    # 0.0 - 1.0
-
-RATES_ATTITUDE_MASK = (
-    mavutil.mavlink.ATTITUDE_TARGET_TYPEMASK_ATTITUDE_IGNORE
-)
-
-def update_attitude_flight_control(mavlink_conn, system_boot_ms, payload):
-    now_ms = int(time.time() * 1000)
-
+class DCLDroneEnv(gym.Env):
     """
-    Sets a desired vehicle attitude. Used by an external controller to
-    command the vehicle (manual controller or other system).
-    
-    time_boot_ms              : Timestamp (time since system boot). [ms] (type:uint32_t)
-    target_system             : System ID (type:uint8_t)
-    target_component          : Component ID (type:uint8_t)
-    type_mask                 : Bitmap to indicate which dimensions should be ignored by the vehicle. (type:uint8_t, values:ATTITUDE_TARGET_TYPEMASK)
-    q                         : Attitude quaternion (w, x, y, z order, zero-rotation is 1, 0, 0, 0) (type:float)
-    body_roll_rate            : Body roll rate [rad/s] (type:float)
-    body_pitch_rate           : Body pitch rate [rad/s] (type:float)
-    body_yaw_rate             : Body yaw rate [rad/s] (type:float)
-    thrust                    : Collective thrust, normalized to 0 .. 1 (-1 .. 1 for vehicles capable of reverse trust) (type:float)
+    Gymnasium Environment wrapping MAVLink motor controls and 
+    YOLO vision feedback for PPO training in DCL.
     """
-    mavlink_conn.mav.set_attitude_target_send(
-        now_ms - system_boot_ms,
-        mavlink_conn.target_system,
-        mavlink_conn.target_component,
-        RATES_ATTITUDE_MASK,
-        [1, 0, 0, 0],  # dummy quaternion (ignored)
-        payload["roll_rate"],
-        payload["pitch_rate"],
-        payload["yaw_rate"],
-        payload["thrust"]
-    )
+    metadata = {"render_modes": []}
 
-# --------------------------------------------------------------------------------------
-# POSITION CONTROLS
-# --------------------------------------------------------------------------------------
-VELOCITY_POSITION_MASK = (
-        mavutil.mavlink.POSITION_TARGET_TYPEMASK_X_IGNORE |
-        mavutil.mavlink.POSITION_TARGET_TYPEMASK_Y_IGNORE |
-        mavutil.mavlink.POSITION_TARGET_TYPEMASK_Z_IGNORE |
-
-        mavutil.mavlink.POSITION_TARGET_TYPEMASK_AX_IGNORE |
-        mavutil.mavlink.POSITION_TARGET_TYPEMASK_AY_IGNORE |
-        mavutil.mavlink.POSITION_TARGET_TYPEMASK_AZ_IGNORE |
-
-        mavutil.mavlink.POSITION_TARGET_TYPEMASK_YAW_IGNORE |
-        mavutil.mavlink.POSITION_TARGET_TYPEMASK_YAW_RATE_IGNORE
-)
-
-def update_position_flight_control(mavlink_conn, system_boot_ms):
-    now_ms = int(time.time() * 1000)
-
-    """
-    Sets a desired vehicle position in a local north-east-down coordinate
-    frame. Used by an external controller to command the vehicle
-    (manual controller or other system).
-
-    time_boot_ms              : Timestamp (time since system boot). [ms] (type:uint32_t)
-    target_system             : System ID (type:uint8_t)
-    target_component          : Component ID (type:uint8_t)
-    coordinate_frame          : Valid options are: MAV_FRAME_LOCAL_NED = 1, MAV_FRAME_LOCAL_OFFSET_NED = 7, MAV_FRAME_BODY_NED = 8, MAV_FRAME_BODY_OFFSET_NED = 9 (type:uint8_t, values:MAV_FRAME)
-    type_mask                 : Bitmap to indicate which dimensions should be ignored by the vehicle. (type:uint16_t, values:POSITION_TARGET_TYPEMASK)
-    x                         : X Position in NED frame [m] (type:float)
-    y                         : Y Position in NED frame [m] (type:float)
-    z                         : Z Position in NED frame (note, altitude is negative in NED) [m] (type:float)
-    vx                        : X velocity in NED frame [m/s] (type:float)
-    vy                        : Y velocity in NED frame [m/s] (type:float)
-    vz                        : Z velocity in NED frame [m/s] (type:float)
-    afx                       : X acceleration or force (if bit 10 of type_mask is set) in NED frame in meter / s^2 or N [m/s/s] (type:float)
-    afy                       : Y acceleration or force (if bit 10 of type_mask is set) in NED frame in meter / s^2 or N [m/s/s] (type:float)
-    afz                       : Z acceleration or force (if bit 10 of type_mask is set) in NED frame in meter / s^2 or N [m/s/s] (type:float)
-    yaw                       : yaw setpoint [rad] (type:float)
-    yaw_rate                  : yaw rate setpoint [rad/s] (type:float)
-    """
-    mavlink_conn.mav.set_position_target_local_ned_send(
-        now_ms - system_boot_ms,
-        mavlink_conn.target_system,
-        mavlink_conn.target_component,
-        mavutil.mavlink.MAV_FRAME_LOCAL_NED,
-        VELOCITY_POSITION_MASK,
-        0.0, 0, 0.0,    # ignored position NED
-        100.0, 0.0, 0.0,  # Vel - 2 m/s forward
-        0.0, 0, 0.0,    # ignored acceleration
-        0,              # ignored yaw
-        0.0             # ignored yaw rate
-    )
-
-# --------------------------------------------------------------------------------------
-# Control Loop
-# --------------------------------------------------------------------------------------
-
-CONTROL_HZ = 250
-
-class Controller:
-    def __init__(self, sim_conn, data, system_boot_ms):
+    def __init__(self, sim_conn, vision_rx, shared_data, system_boot_ms, control_hz=30):
+        super().__init__()
+        
         self.sim_conn = sim_conn
-        self.data = data
+        self.vision_rx = vision_rx
+        self.data = shared_data
         self.system_boot_ms = system_boot_ms
-        self.integral_error = [0, 0]
-        self.last_error = [0, 0]
+        self.dt = 1.0 / control_hz
 
-    def get_position(self):
-        return {
-            # 'pos_x': self.data["pos_x"],
-            # 'pos_y': self.data["pos_y"],
-            # 'pos_z': self.data["pos_z"],
-            # 'vel_x': self.data["vel_x"],
-            # 'vel_y': self.data["vel_y"],
-            # 'vel_z': self.data["vel_z"],
-            'acc_x': self.data["acc_x"],
-            'acc_y': self.data["acc_y"],
-            'acc_z': self.data["acc_z"],
-        }
+        # Initialize default runtime states
+        self.data["is_crashed"] = False
 
-    def update(self):
-        pose_data = self.get_position()
-        # print(pose_data)
-        # print("Gates: ", self.data["gates"])
-        # print("Timestep: ", self.data["timestep"])
+        # Action Space: 4 normalized motor speeds [0.0, 1.0]
+        self.action_space = spaces.Box(
+            low=0.0,
+            high=1.0,
+            shape=(4,),
+            dtype=np.float32
+        )
 
-        # payload = {
-        #     'pitch_rate': 0.0,   # rad/s (negative = pitch forward)
-        #     'roll_rate' : 0.0,
-        #     'yaw_rate'  : 0.0,
-        #     'thrust'    : 0.268    # 0.0 - 1.0      # ~approx 0.268 thrust required to break even
-        # }
+        # Observation Space:
+        # [gate_visible (0/1), norm_x, norm_y, norm_depth, acc_x, acc_y, acc_z, prev_m0..m3]
+        self.observation_space = spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(11,),
+            dtype=np.float32
+        )
 
-        # center_point = [0, 10]
+        self.last_action = np.zeros(4, dtype=np.float32)
+        self.step_count = 0
+        self.max_steps = 1000  # Episode truncation limit
 
-        # POSITIVE Y IS DOWN!!!!!
-        # Trying to stay within the NED coordinate scheme? If it becomes a problem I can switch it
-        if len(self.data["gates"]) > 0:
-            pass
+    def _send_motor_controls(self, motors):
+        """Sends motor speeds (0.0 to 1.0) over MAVLink."""
+        front_left, front_right, back_left, back_right = motors
+        motor_rpms = [float(front_left), float(front_right), float(back_left), float(back_right), 0, 0, 0, 0]
+        
+        self.sim_conn.mav.set_actuator_control_target_send(
+            int(time.time() * 1e6),
+            self.sim_conn.target_system,
+            self.sim_conn.target_component,
+            0,
+            motor_rpms
+        )
 
-        # front_left, front_right, back_left, back_right
-        update_motor_control(self.sim_conn, 1, 1, 0, 0, self.system_boot_ms)
+    def _get_observation(self):
+        """Extracts normalized gate detection & IMU readings."""
+        gates = self.data.get("gates", [])
+        
+        if len(gates) > 0:
+            target_gate = gates[0]
+            gate_visible = 1.0
+            norm_x = target_gate[0] / 320.0  # Normalized relative to center
+            norm_y = target_gate[1] / 180.0  # Normalized relative to center
+            norm_depth = target_gate[2] / 740.0 # Bounding box scale
+        else:
+            gate_visible = 0.0
+            norm_x, norm_y, norm_depth = 0.0, 0.0, 0.0
 
-        time.sleep(1.0 / CONTROL_HZ)
+        obs = np.array([
+            gate_visible,
+            norm_x,
+            norm_y,
+            norm_depth,
+            self.data.get("acc_x", 0.0),
+            self.data.get("acc_y", 0.0),
+            self.data.get("acc_z", 0.0),
+            self.last_action[0],
+            self.last_action[1],
+            self.last_action[2],
+            self.last_action[3]
+        ], dtype=np.float32)
 
-    # -------------------------------
-    # Arm the drone
-    # -------------------------------
+        return obs
+
+    def _calculate_reward(self, obs, terminated):
+        # High penalty on collision crash
+        if terminated:
+            return -100.0
+
+        gate_visible, norm_x, norm_y, norm_depth = obs[0], obs[1], obs[2], obs[3]
+
+        if gate_visible == 0.0:
+            return -1.0  # Penalty for losing sight of the gate
+
+        # 1. Centering reward: Keep target centered in camera view
+        center_error = np.sqrt(norm_x**2 + norm_y**2)
+        centering_reward = 1.0 - center_error
+
+        # 2. Forward progress: Getting closer to gate increases bounding box size
+        progress_reward = norm_depth * 2.0
+
+        # 3. Smoothness penalty
+        action_penalty = -0.01 * np.sum(np.square(self.last_action))
+
+        return float(centering_reward + progress_reward + action_penalty)
+
     def arm(self):
+        """Arm vehicle via MAVLink command."""
         self.sim_conn.mav.command_long_send(
             self.sim_conn.target_system,
             self.sim_conn.target_component,
             mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
-            0,
-            1,  # arm
-            0, 0, 0, 0, 0, 0
+            0, 1, 0, 0, 0, 0, 0, 0
         )
 
-    def send_sim_reset_command(self):
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+
+        # Clear collision state
+        self.data["is_crashed"] = False
+
+        # Reset DCL simulator environment
         self.sim_conn.mav.command_long_send(
             self.sim_conn.target_system,
             self.sim_conn.target_component,
             MAVLINK_CMD_SIM_RESET,
-            0,  # confirmation
-            0, 0, 0, 0, 0, 0, 0
+            0, 0, 0, 0, 0, 0, 0, 0
         )
+
+        self.arm()
+        self.last_action = np.zeros(4, dtype=np.float32)
+        self.step_count = 0
+
+        time.sleep(0.1)
+        return self._get_observation(), {}
+
+    def step(self, action):
+        self.step_count += 1
+        self.last_action = action
+
+        # Command motor speeds
+        self._send_motor_controls(action)
+        time.sleep(self.dt)
+
+        # Update OpenCV stream window
+        self.vision_rx.update_window(OUTPUT_MODE=False)
+
+        obs = self._get_observation()
+        
+        # Check termination flags
+        terminated = bool(self.data.get("is_crashed", False))
+        truncated = self.step_count >= self.max_steps
+
+        reward = self._calculate_reward(obs, terminated)
+
+        return obs, reward, terminated, truncated, {}

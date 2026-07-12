@@ -221,7 +221,10 @@ class MAVLinkRX:
         collision_id = msg.id
 
         threat_level = msg.threat_level # 1-2 with 2 being higher impact collision
-        impact = msg.horizontal_minimum_delta # this is not a delta - it is the impulse magnitude in kg m/s
+        impact = msg.horizontal_minimum_delta # impulse magnitude in kg m/s
+
+        # Mark iteration as failed upon receiving collision packet
+        self.data["is_crashed"] = True
 
 
 
